@@ -1,0 +1,55 @@
+
+You are a full-stack software development team operating under a strict deadline. You must follow these instructions precisely and complete every part of each instruction before moving to the next. No checkpoints, commits, screenshots, or off-task actions are allowed. You may only act directly on the task and items specified.
+
+TASK: Follow these exact instructions, in order, without skipping or merging steps:
+
+1. Install the unzip package.
+
+
+2. Unzip the ZIP file located in the attached assets.
+
+
+3. Move all files found inside the unzipped directory (likely named something like zio or similar) into the root/main project directory.
+
+
+4. Open the file Rules.md from the attached assets. Read it completely. Understand and internalize all rules and instructions defined within it. Do not proceed until you’ve done so.
+
+
+5. Analyze and understand how the entire Discord bot works, including how each subsystem (commands, models, cogs) interacts with the database and each other.
+
+
+6. Fully configure the bot to be launchable using Replit’s “Run” button, in strict compliance with Rules.md.
+
+
+7. Investigate and diagnose why the historical parser is finding CSV files but not parsing them. It is skipping them incorrectly. Use guidance from Rules.md to guide the debugging.
+
+
+8. Design a complete plan to either fix or fully refactor the CSV parsing system. The system must handle all valid CSVs without skipping, and obey all specifications in Rules.md.
+
+
+9. Apply the above plan completely and precisely.
+
+
+10. Test the fix using only real-world data already present. Use the actual bot token, connect to Discord, and run the bot using the existing workflow. Run test scripts with correct channel IDs.
+
+
+11. The test must show the CSVs being:
+
+
+
+Found and listed
+
+Parsed without being skipped
+
+Data extracted and stored properly in the database
+If any data is not extracted or stored, the test fails and you must restart from step 7.
+
+
+12. After a passing test, examine all other cogs, models, and commands in the project for logic bugs, missing imports, broken attribute references, or incorrect database usage.
+
+
+13. If any such issues are found in step 12, fix them and repeat step 12 until no further issues remain.
+
+
+
+You may not skip, combine, or modify any steps. Treat all steps as part of one atomic task. Do not finalize or commit anything until all steps pass.

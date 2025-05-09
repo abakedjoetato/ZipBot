@@ -1,67 +1,113 @@
-"""
-Configuration management for the Discord bot
-"""
-import os
-import json
-import logging
+# Configuration for Tower of Temptation PvP Statistics Bot
 
-logger = logging.getLogger(__name__)
-
-# Default configuration values
-DEFAULT_CONFIG = {
-    "prefix": "!",
-    "description": "A Discord bot powered by discord.py",
-    "activity": "with Discord",
-    "activity_type": "playing",
-    "log_level": "INFO"
+# Premium tier configuration
+PREMIUM_TIERS = {
+    0: {
+        "name": "Scavenger",
+        "max_servers": 1,
+        "features": ["killfeed"],
+        "price": 0  # Free tier
+    },
+    1: {
+        "name": "Survivor",
+        "max_servers": 1,
+        "features": ["killfeed", "basic_stats", "leaderboards"],
+        "price": 5  # £5 per month
+    },
+    2: {
+        "name": "Mercenary",
+        "max_servers": 2,
+        "features": ["killfeed", "basic_stats", "leaderboards", "rivalries", "bounties", "player_links", "economy", "advanced_analytics"],
+        "price": 15  # £15 per month
+    },
+    3: {
+        "name": "Warlord",
+        "max_servers": 3,
+        "features": ["killfeed", "basic_stats", "leaderboards", "rivalries", "bounties", "player_links", "factions", "economy", "advanced_analytics"],
+        "price": 25  # £25 per month
+    },
+    4: {
+        "name": "Overseer",
+        "max_servers": 10,  # Higher limit
+        "features": ["killfeed", "basic_stats", "leaderboards", "rivalries", "bounties", "player_links", "factions", "economy", "advanced_analytics"],
+        "price": 50  # £50 per month
+    }
 }
 
-def load_config():
-    """
-    Load configuration from JSON file or environment variables
-    
-    Priority:
-    1. Environment variables
-    2. config.json file
-    3. Default values
-    
-    Returns:
-        dict: Bot configuration
-    """
-    config = DEFAULT_CONFIG.copy()
-    
-    # Try to load from config.json
-    config_path = os.path.join(os.path.dirname(__file__), "config.json")
-    if os.path.exists(config_path):
-        try:
-            with open(config_path, "r") as f:
-                file_config = json.load(f)
-                config.update(file_config)
-            logger.info("Loaded configuration from config.json")
-        except Exception as e:
-            logger.error(f"Error loading config.json: {e}")
-    else:
-        logger.warning("No config.json found, using default values or environment variables")
-    
-    # Override with environment variables if they exist
-    env_prefix = os.getenv("BOT_PREFIX")
-    if env_prefix:
-        config["prefix"] = env_prefix
-        
-    env_description = os.getenv("BOT_DESCRIPTION")
-    if env_description:
-        config["description"] = env_description
-        
-    env_activity = os.getenv("BOT_ACTIVITY")
-    if env_activity:
-        config["activity"] = env_activity
-        
-    env_activity_type = os.getenv("BOT_ACTIVITY_TYPE")
-    if env_activity_type:
-        config["activity_type"] = env_activity_type
-        
-    env_log_level = os.getenv("BOT_LOG_LEVEL")
-    if env_log_level:
-        config["log_level"] = env_log_level
-    
-    return config
+# Default colors for Discord embeds
+DEFAULT_COLOR_PRIMARY = "#7289DA"   # Discord blurple
+DEFAULT_COLOR_SECONDARY = "#FFFFFF" # White
+DEFAULT_COLOR_ACCENT = "#23272A"    # Discord dark
+
+# Default PvP statistics settings
+DEFAULT_STATS_CONFIG = {
+    "kd_ratio_min_kills": 5,         # Minimum kills required to calculate K/D ratio
+    "significant_rivalry_kills": 3,   # Minimum kills to consider a rivalry significant
+    "top_players_limit": 10,          # Default number of players to show in leaderboards
+    "auto_bounty_threshold": 5,       # Kills needed to trigger auto-bounty
+    "default_bounty_reward": 100,     # Default reward for bounties 
+    "default_expiration_hours": 24,   # Default bounty expiration time in hours
+}
+
+# Command prefix for traditional commands
+COMMAND_PREFIX = "!"
+
+# Default embed colors
+EMBED_COLOR = "#7289DA"
+EMBED_COLOR_ERROR = "#FF0000"
+EMBED_COLOR_SUCCESS = "#00FF00"
+EMBED_COLOR_WARNING = "#FFFF00"
+EMBED_COLOR_INFO = "#0000FF"
+
+# Default bot settings
+BOT_VERSION = "1.0.0"
+SUPPORT_SERVER_INVITE = "https://discord.gg/example"
+SUPPORT_CONTACT = "support@example.com"
+
+# CSV Parsing constants
+CSV_FIELDS = {
+    "timestamp": 0,
+    "killer_name": 1,
+    "killer_id": 2,
+    "victim_name": 3,
+    "victim_id": 4,
+    "weapon": 5,
+    "distance": 6,
+    "killer_console": 7,
+    "victim_console": 8
+}
+
+# CSV filename pattern for identifying CSV files
+CSV_FILENAME_PATTERN = r"\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.csv$"
+
+# Event patterns for log parsing
+EVENT_PATTERNS = {
+    "player_joined": r"Player (\w+) \(([0-9a-f]+)\) connected",
+    "player_left": r"Player (\w+) \(([0-9a-f]+)\) disconnected",
+    "server_restart": r"Server is restarting",
+    "admin_command": r"Admin command: (.*) by (.*)",
+    "game_event": r"Game event: (.*)"
+}
+
+# Embed themes
+EMBED_THEMES = {
+    "default": {
+        "color": "#7289DA",
+        "footer": "Tower of Temptation PvP Statistics",
+        "icon": "https://i.imgur.com/example.png"
+    },
+    "error": {
+        "color": "#FF0000",
+        "footer": "Error | Tower of Temptation",
+        "icon": "https://i.imgur.com/error.png"
+    },
+    "success": {
+        "color": "#00FF00",
+        "footer": "Success | Tower of Temptation",
+        "icon": "https://i.imgur.com/success.png"
+    }
+}
+
+# Embed footer and icon
+EMBED_FOOTER = "Tower of Temptation PvP Statistics"
+EMBED_ICON = "https://i.imgur.com/example.png"

@@ -2788,11 +2788,25 @@ class SFTPClient:
         csv_patterns = [
             # Primary pattern - matches YYYY.MM.DD-HH.MM.SS.csv (Emeralds Killfeed standard)
             r'\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.csv$',
-
-            # Alternative patterns - match various date formats
+            
+            # Variant with colons instead of dots in the time portion
+            r'\d{4}\.\d{2}\.\d{2}-\d{2}:\d{2}:\d{2}\.csv$',
+            
+            # Variant with space instead of dash between date and time
+            r'\d{4}\.\d{2}\.\d{2} \d{2}\.\d{2}\.\d{2}\.csv$',
+            r'\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}\.csv$',
+            
+            # ISO date format variants
+            r'\d{4}-\d{2}-\d{2}-\d{2}\.\d{2}\.\d{2}\.csv$',  # YYYY-MM-DD-HH.MM.SS.csv
+            r'\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\.csv$',    # YYYY-MM-DD HH:MM:SS.csv
+            
+            # Alternative patterns - match various date formats without full time
             r'\d{4}\.\d{2}\.\d{2}.*\.csv$',    # YYYY.MM.DD*.csv (any time format)
-            r'\d{4}-\d{2}-\d{2}.*\.csv$',      # YYYY-MM-DD*.csv (ISO date format)
-
+            r'\d{4}-\d{2}-\d{2}.*\.csv$',      # YYYY-MM-DD*.csv (ISO format)
+            
+            # Date in different position variants
+            r'.*\d{4}\.\d{2}\.\d{2}.*\.csv$',  # Any prefix with YYYY.MM.DD*.csv
+            
             # Generic CSV fallback as last resort
             r'.*\.csv$'
         ]

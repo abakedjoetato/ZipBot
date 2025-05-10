@@ -1,5 +1,8 @@
 """
 Parsers for CSV and log files
+
+This module is kept for backward compatibility.
+CSVParser is now imported from utils.csv_parser for better performance and reliability.
 """
 import re
 import logging
@@ -7,10 +10,20 @@ import datetime
 from typing import List, Dict, Any, Tuple, Optional
 
 from config import CSV_FIELDS, EVENT_PATTERNS
+from utils.csv_parser import CSVParser as EnhancedCSVParser
 
 logger = logging.getLogger(__name__)
 
-class CSVParser:
+# For backward compatibility, import the enhanced CSVParser
+CSVParser = EnhancedCSVParser  
+
+# Expose the normalize_weapon_name method directly for backward compatibility
+def normalize_weapon_name(weapon: str) -> str:
+    """Normalize weapon names to ensure consistency - forwarded to enhanced parser"""
+    return CSVParser.normalize_weapon_name(weapon)
+
+# Legacy CSVParser for reference only (not used)
+class LegacyCSVParser:
     """Parser for CSV kill data files"""
     
     @staticmethod
@@ -210,7 +223,7 @@ class CSVParser:
                 if 0 <= weapon_idx < len(parts_with_placeholders):
                     weapon_raw = parts_with_placeholders[weapon_idx]
                     if weapon_raw != "__EMPTY__":
-                        weapon = CSVParser.normalize_weapon_name(weapon_raw)
+                        weapon = normalize_weapon_name(weapon_raw)
                 
                 # More flexible validation - require timestamp and either victim or killer info
                 # We'll be more permissive to capture more events

@@ -15,7 +15,7 @@ from models.guild import Guild
 from models.server import Server
 from models.player import Player
 from utils.sftp import SFTPClient
-from utils.parsers import CSVParser
+from utils.csv_parser import CSVParser
 from utils.embed_builder import EmbedBuilder
 from utils.helpers import has_admin_permission
 from utils.decorators import premium_tier_required

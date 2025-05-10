@@ -349,7 +349,7 @@ def fix_csv_processor_cog():
     diagnostics_code = """
     @commands.command(name="csv_diagnostics")
     async def csv_diagnostics(self, ctx, file_path=None):
-        """Run diagnostics on CSV files to identify and fix issues"""
+        \"\"\"Run diagnostics on CSV files to identify and fix issues\"\"\"
         try:
             if not file_path:
                 await ctx.send("Please specify a CSV file path to diagnose or use 'all' to scan all files.")

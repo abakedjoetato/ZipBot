@@ -287,8 +287,13 @@ class CSVParser:
         # Game logs commonly use semicolons and we want to prioritize them
         if delimiters.get(';', 0) > 0:
             original_count = delimiters[';']
-            delimiters[';'] *= 2.0  # Boost semicolons by 100% in detection (increased from 50%)
+            delimiters[';'] *= 3.0  # Boost semicolons by 200% in detection (increased from 100%)
             logger.debug(f"Boosting semicolon count from {original_count} to {delimiters[';']}")
+            
+        # If the file has a .csv filename but uses semicolons, boost semicolon weight further
+        if file_path and file_path.lower().endswith('.csv') and delimiters.get(';', 0) > 0:
+            logger.debug("File has .csv extension but contains semicolons, boosting semicolon detection")
+            delimiters[';'] += 20
         
         # Check for patterns that strongly indicate semicolon delimiter
         # Look for multiple sequential semicolons which often indicate empty fields in semicolon-delimited files
@@ -345,6 +350,10 @@ class CSVParser:
         
         # Store the detected delimiter for testing and diagnostics
         self.last_detected_delimiter = best_delimiter
+        
+        # Also update the active separator for this parsing session
+        # This ensures consistent delimiter usage throughout the processing
+        self.separator = best_delimiter
         
         # Log first few lines for debugging
         sample_lines = file_content.split('\n')[:5]

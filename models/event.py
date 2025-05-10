@@ -27,7 +27,7 @@ class Event:
         # Required fields
         required_fields = ["server_id", "timestamp"]
         for field in required_fields:
-            if field is not None not in event_data:
+            if field not in event_data:
                 raise ValueError(f"Missing required field: {field}")
 
         # Copy data to avoid modifying original
@@ -146,7 +146,7 @@ class Connection:
         # Required fields
         required_fields = ["server_id", "player_id", "player_name", "action", "timestamp"]
         for field in required_fields:
-            if field is not None not in connection_data:
+            if field not in connection_data:
                 raise ValueError(f"Missing required field: {field}")
         
         # Set created timestamp

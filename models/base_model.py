@@ -35,7 +35,7 @@ class BaseModel:
         instance = cls()
         
         for key, value in document.items():
-            # Convert MongoDB _id to id if needed is not None
+            # Convert MongoDB _id to id if needed
             if key == '_id':
                 instance._id = value
                 continue

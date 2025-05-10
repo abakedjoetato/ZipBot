@@ -17,7 +17,7 @@ from models.server import Server
 from utils.sftp import SFTPClient
 from utils.embed_builder import EmbedBuilder
 from utils.helpers import has_admin_permission
-from utils.parsers import CSVParser
+from utils.csv_parser import CSVParser
 from utils.decorators import premium_tier_required
 from utils.discord_utils import server_id_autocomplete, hybrid_send
 from config import PREMIUM_TIERS

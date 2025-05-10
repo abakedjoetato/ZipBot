@@ -41,7 +41,7 @@ class MotorDatabase(Protocol):
     def players(self) -> Any: ...
     @property
     def kills(self) -> Any: ...
-    
+
 class PvPBot(Protocol):
     """Protocol defining the PvPBot interface with required properties"""
     @property
@@ -49,7 +49,7 @@ class PvPBot(Protocol):
     def wait_until_ready(self) -> Coroutine[Any, Any, None]: ...
     @property
     def user(self) -> Optional[Union[discord.User, discord.ClientUser]]: ...
-        
+
 T = TypeVar('T')
 
 # Import utils 
@@ -104,7 +104,7 @@ class CSVProcessorCog(commands.Cog):
         This task runs every 5 minutes to check for new CSV files and process them promptly.
         """
         logger.warning(f"CRITICAL DEBUG: Starting CSV processor task at {datetime.now().strftime('%H:%M:%S')}")
-        
+
         if self.is_processing:
             logger.warning("CRITICAL DEBUG: Skipping CSV processing - already running")
             return
@@ -115,17 +115,17 @@ class CSVProcessorCog(commands.Cog):
             process = psutil.Process()
             memory_info = process.memory_info()
             memory_mb = memory_info.rss / 1024 / 1024
-            
+
             # Skip if memory usage is too high
             if memory_mb > 500:  # 500MB limit
                 logger.warning(f"Skipping CSV processing due to high memory usage: {memory_mb:.2f}MB")
                 return
-                
+
         except ImportError:
             pass  # psutil not available, continue anyway
         except Exception as e:
             logger.error(f"Error checking memory usage: {e}")
-        
+
         self.is_processing = True
         start_time = time.time()
 
@@ -137,7 +137,7 @@ class CSVProcessorCog(commands.Cog):
             if not server_configs:
                 logger.debug("No SFTP-enabled servers configured, skipping CSV processing")
                 return
-                
+
             # Report number of servers to process
             logger.info(f"Processing CSV files for {len(server_configs)} servers")
 
@@ -147,7 +147,7 @@ class CSVProcessorCog(commands.Cog):
                 if time.time() - start_time > 300:  # 5 minute total limit
                     logger.warning("CSV processing taking too long, stopping after current server")
                     break
-                    
+
                 try:
                     # Set a timeout for this server's processing
                     try:
@@ -161,10 +161,10 @@ class CSVProcessorCog(commands.Cog):
                 except Exception as e:
                     logger.error(f"Error processing CSV files for server {server_id}: {str(e)}")
                     continue  # Skip to next server on error
-                    
+
                 # Brief pause between servers to reduce resource spikes
                 await asyncio.sleep(2)
-                
+
         except Exception as e:
             logger.error(f"Error in CSV processing task: {str(e)}")
         finally:
@@ -178,43 +178,43 @@ class CSVProcessorCog(commands.Cog):
         await self.bot.wait_until_ready()
         # Add a small delay to avoid startup issues
         await asyncio.sleep(10)
-        
+
     async def direct_csv_processing(self, server_id: str, days: int = 30) -> Tuple[int, int]:
         """
         Process CSV files using the direct parser, completely bypassing the normal infrastructure.
         This is a last-resort method when all other parsing methods fail.
-        
+
         Args:
             server_id: Server ID
             days: Number of days to look back
-            
+
         Returns:
             Tuple[int, int]: Number of files processed and events imported
         """
         logger.warning(f"USING DIRECT CSV HANDLER FOR SERVER {server_id} - THIS IS A FALLBACK METHOD")
-        
+
         try:
             # Import our direct handler
             from utils.direct_csv_handler import process_directory, update_player_stats, update_rivalries
-            
+
             # Process files directly
             files_processed, events_imported = await process_directory(
                 db=self.bot.db,
                 server_id=server_id,
                 days=days
             )
-            
+
             logger.info(f"Direct processing complete: processed {files_processed} files, imported {events_imported} events")
-            
+
             if events_imported > 0:
                 # Update player stats and rivalries
                 players_updated = await update_player_stats(self.bot.db, server_id)
                 rivalries_updated = await update_rivalries(self.bot.db, server_id)
-                
+
                 logger.info(f"Updated {players_updated} players and {rivalries_updated} rivalries")
-                
+
             return files_processed, events_imported
-            
+
         except Exception as e:
             logger.error(f"Error in direct CSV processing: {e}")
             logger.error(traceback.format_exc())
@@ -384,22 +384,22 @@ class CSVProcessorCog(commands.Cog):
                 original_server_id = server.get("original_server_id", raw_server_id)
                 if not original_server_id:
                     original_server_id = raw_server_id
-                    
+
                 # Use server_identity module for consistent ID resolution
                 from utils.server_identity import identify_server
-                
+
                 # Get consistent ID for this server
                 server_name = server.get("server_name", "")
                 guild_id = server.get("guild_id")
                 hostname = sftp_host
-                
+
                 numeric_id, is_known = identify_server(
                     server_id=server_id,
                     hostname=hostname,
                     server_name=server_name,
                     guild_id=guild_id
                 )
-                
+
                 # Use the identified ID
                 if is_known or numeric_id != original_server_id:
                     # Only log if we're changing the ID
@@ -408,7 +408,7 @@ class CSVProcessorCog(commands.Cog):
                     else:
                         logger.info(f"Using derived numeric ID '{numeric_id}' for server {server_id}")
                     original_server_id = numeric_id
-                
+
                 # Log the original server ID being used
                 logger.debug(f"Using original_server_id={original_server_id} for server {server_id}")
 
@@ -453,16 +453,16 @@ class CSVProcessorCog(commands.Cog):
             logger.info(f"DIAGNOSTIC: Using provided start_date: {start_date}")
         else:
             logger.info(f"DIAGNOSTIC: No start_date provided, will use last_processed or default to 24 hours ago")
-        
+
             # Connect to SFTP with improved connection handling and retries
             logger.info(f"Connecting to SFTP for server {server_id} with enhanced connection handling")
-            
+
             # Initialize connection variables
             sftp = None
             max_connection_attempts = 3
             connection_attempts = 0
             connection_retry_delay = 2  # seconds
-            
+
             while connection_attempts < max_connection_attempts:
                 connection_attempts += 1
                 try:
@@ -475,7 +475,7 @@ class CSVProcessorCog(commands.Cog):
                         server_id=server_id,
                         original_server_id=config.get("original_server_id")
                     )
-                    
+
                     # Attempt connection with timeout
                     logger.info(f"SFTP connection attempt {connection_attempts}/{max_connection_attempts} for server {server_id}")
                     connect_timeout = 10  # seconds
@@ -483,31 +483,31 @@ class CSVProcessorCog(commands.Cog):
                         sftp_manager.connect(),
                         timeout=connect_timeout
                     )
-                    
+
                     # Set the client to the manager's client
                     sftp = sftp_manager
-                    
+
                     # Check connection status using the is_connected property
                     if not sftp_manager.is_connected:
                         raise ConnectionError(f"SFTP connection failed for server {server_id}")
-                    
+
                     # Test connection by listing root directory
                     await sftp.listdir('/')
                     logger.info(f"SFTP connection successful for server {server_id}")
                     break
-                    
+
                 except asyncio.TimeoutError:
                     logger.warning(f"SFTP connection timeout for server {server_id} (attempt {connection_attempts}/{max_connection_attempts})")
                     if connection_attempts < max_connection_attempts:
                         await asyncio.sleep(connection_retry_delay)
                         connection_retry_delay *= 2  # Exponential backoff
-                    
+
                 except Exception as e:
                     logger.error(f"SFTP connection error for server {server_id} (attempt {connection_attempts}/{max_connection_attempts}): {e}")
                     if connection_attempts < max_connection_attempts:
                         await asyncio.sleep(connection_retry_delay)
                         connection_retry_delay *= 2  # Exponential backoff
-            
+
             # If all connection attempts failed, return early
             if not sftp:
                 logger.error(f"All SFTP connection attempts failed for server {server_id}")
@@ -542,12 +542,12 @@ class CSVProcessorCog(commands.Cog):
 
                 # Use server_identity module for consistent ID resolution
                 from utils.server_identity import identify_server
-                
+
                 # Get server properties for identification
                 hostname = config.get("hostname", "")
                 server_name = config.get("server_name", "")
                 guild_id = config.get("guild_id")
-                
+
                 # Identify server using our consistent module
                 numeric_id, is_known = identify_server(
                     server_id=server_id,
@@ -555,7 +555,7 @@ class CSVProcessorCog(commands.Cog):
                     server_name=server_name,
                     guild_id=guild_id
                 )
-                
+
                 # Use the identified consistent ID
                 if is_known or numeric_id != path_server_id:
                     if is_known:
@@ -582,11 +582,11 @@ class CSVProcessorCog(commands.Cog):
                 # Build server directory and base path
                 server_dir = f"{config.get('hostname', 'server').split(':')[0]}_{path_server_id}"
                 base_path = os.path.join("/", server_dir)
-                
+
                 # Always use the standardized path for deathlogs
                 deathlogs_path = os.path.join(base_path, "actual1", "deathlogs")
                 logger.debug(f"Using standardized deathlogs path: {deathlogs_path}")
-                
+
                 # Never allow paths that would search above the base server directory
                 if ".." in deathlogs_path:
                     logger.warning(f"Invalid deathlogs path containing parent traversal: {deathlogs_path}")
@@ -977,18 +977,18 @@ class CSVProcessorCog(commands.Cog):
                         # If we still have no files or path, try local test files as a fallback
                         if not csv_files or path_found is None:
                             logger.warning(f"No CSV files found for server {server_id} after exhaustive search on SFTP")
-                            
+
                             # Fallback to local test files in attached_assets
                             if os.path.exists('attached_assets'):
                                 logger.info(f"Falling back to local test CSV files in attached_assets for server {server_id}")
                                 local_csv_pattern = r"\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.csv$"
                                 local_csv_files = []
                                 full_path_csv_files = []  # Initialize the list to prevent unbound error
-                                
+
                                 # Rule #11: No test shortcuts - only use attached_assets for explicit debugging
                                 # The proper production configuration must be used
                                 logger.info(f"No CSV files found in SFTP locations, checking attached_assets for development files only")
-                                
+
                                 # Only use attached_assets as fallback in development, not production
                                 try:
                                     for filename in os.listdir('attached_assets'):
@@ -996,7 +996,7 @@ class CSVProcessorCog(commands.Cog):
                                             local_path = os.path.join('attached_assets', filename)
                                             local_csv_files.append(filename)
                                             full_path_csv_files.append(local_path)
-                                            
+
                                     if local_csv_files:
                                         # Always prioritize SFTP files over local test files - Rule #11
                                         # Only use local files if explicitly directed or as last resort in development
@@ -1029,25 +1029,25 @@ class CSVProcessorCog(commands.Cog):
                                       f"using 24 hours ago as default to prevent excessive processing")
                             last_time = datetime.now() - timedelta(days=1)  # 24 hours ago
                             last_time_str = last_time.strftime("%Y.%m.%d-%H.%M.%S")
-                            
+
                         # Log the cutoff time being used
                         logger.info(f"Processing files newer than: {last_time_str}")
-                        
+
                         # If no CSV files found via SFTP, log error and return
                         if not csv_files or len(csv_files) == 0:
                             logger.error(f"No CSV files found in SFTP location for server {server_id}")
                             logger.error(f"Please check SFTP configuration and connectivity")
                             return 0, 0
-                                    # Log any errors encountered
-                        if not csv_files or len(csv_files) == 0:
-                            logger.error(f"No CSV files found in SFTP location for server {server_id}")
-                            logger.error(f"Please check SFTP configuration and connectivity")
-                            return 0, 0
-                                        for filename in os.listdir(test_dir):
-                                            if filename.endswith(".csv") and re.match(r'\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.csv$', filename):
-                                                test_files.append(os.path.join(test_dir, filename))
-                                                logger.info(f"Found valid CSV file: {filename}")
-                                        
+
+                            # Check for local test files if SFTP fails
+                            if os.path.exists(test_dir):
+                                logger.info(f"Checking attached_assets directory for CSV files")
+                                test_files = []
+                                for filename in os.listdir(test_dir):
+                                    if filename.endswith(".csv") and re.match(r'\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.csv$', filename):
+                                        test_files.append(os.path.join(test_dir, filename))
+                                        logger.info(f"Found valid CSV file: {filename}")
+
                                         if test_files:
                                             logger.warning(f"Using {len(test_files)} local CSV files - this is only for development")
                                             logger.warning(f"PRODUCTION SHOULD USE SFTP FILES ONLY - Rule #11")
@@ -1062,32 +1062,32 @@ class CSVProcessorCog(commands.Cog):
                                     logger.info(f"ALLOW_LOCAL_FILES not set - using only SFTP files as required in production")
                             else:
                                 logger.info(f"Already using attached_assets directory, no need to check again")
-                        
+
                         # Filter for files newer than last processed
                         # Extract just the date portion from filenames for comparison with last_time_str
                         new_files = []
                         skipped_files = []
-                        
+
                         # CRITICAL HOT FIX: COMPLETELY BYPASS DATE FILTERING
                         # Directly assign all files for processing without any filtering
                         new_files = []
                         skipped_files = []
-                        
+
                         logger.warning(f"EMERGENCY FIX: Processing ALL {len(csv_files)} CSV files regardless of date")
                         logger.warning(f"EMERGENCY FIX: Timestamp filter cutoff would have been {last_time_str}")
-                        
+
                         # Log what we're about to process
                         for f in csv_files:
                             filename = os.path.basename(f)
                             logger.warning(f"EMERGENCY FIX: Will process file: {filename}")
                             new_files.append(f)
-                            
+
                         # Safety check - ensure we actually have files to process
                         if not new_files:
                             logger.error("EMERGENCY FIX: Critical error - no files in new_files list despite bypassing filters!")
                             # Force assign all files as a last resort
                             new_files = csv_files.copy()
-                            
+
                         # COMPLETE SKIP OF THE SECOND FILTERING LOOP
                         # Original loop commented out to prevent duplicate processing
                         # BEGINNING OF COMMENTED OUT SECTION
@@ -1097,11 +1097,11 @@ class CSVProcessorCog(commands.Cog):
                             # Get just the filename without the path
                             filename = os.path.basename(f)
                             logger.info(f"DEBUG CSV: Processing filename: {filename}")
-                            
+
                             # Extract the date portion (if it exists)
                             # Match patterns like: 2025.05.03-00.00.00.csv or 2025.05.03-00.00.00
                             date_match = re.search(r'(\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2})', filename)
-                            
+
                             if date_match:
                                 file_date_str = date_match.group(1)
 
@@ -1139,7 +1139,7 @@ class CSVProcessorCog(commands.Cog):
                                         '%Y.%m.%d %H:%M:%S',  # Dots for date
                                         '%d.%m.%Y-%H.%M.%S',  # European format
                                     ]
-                                    
+
                                     for fmt in fallback_formats:
                                         try:
                                             file_date = datetime.strptime(file_date_str, fmt)
@@ -1148,7 +1148,7 @@ class CSVProcessorCog(commands.Cog):
                                             break
                                         except ValueError:
                                             continue
-                                    
+
                                     if not parsed:
                                         # If all formats fail, use a fixed date in the past
                                         # This ensures the file will be processed
@@ -1156,36 +1156,36 @@ class CSVProcessorCog(commands.Cog):
                                         # Use day before last_time to ensure file is processed
                                         file_date = last_time - timedelta(days=1)
                                         logger.warning(f"TIMESTAMP FIX: Using fixed date: {file_date} for timestamp: {file_date_str}")
-                                
+
                                 # EMERGENCY FIX: Add debug logging
                                 logger.warning(f"TIMESTAMP FIX: File date: {file_date}, Last time: {last_time}, Will process: {file_date > last_time}")
-                                
+
                                 # EMERGENCY FIX: Override comparison to always process all files
                                 # Comment out next line to disable emergency mode
                                 file_date = datetime.now()  # Force all files to be processed by setting date to now
                                 logger.info(f"Extracted date {file_date_str} from filename {filename}")
-                                
+
                                 try:
                                     # Convert both timestamp strings to datetime objects for proper comparison
                                     file_date = datetime.strptime(file_date_str, "%Y.%m.%d-%H.%M.%S")
-                                    
+
                                     # Additional safety check - skip if the date is obviously wrong (future)
                                     now = datetime.now()
                                     if file_date > now + timedelta(hours=1):  # Allow 1 hour buffer for clock differences
                                         logger.warning(f"File date {file_date} appears to be in the future, skipping")
                                         skipped_files.append(f)
                                         continue
-                                        
+
                                     # Convert string format back to datetime for comparison
                                     last_time_date = datetime.strptime(last_time_str, "%Y.%m.%d-%H.%M.%S")
-                                    
+
                                     # IMPORTANT FIX: Always include files if they're within the last 7 days
                                     # regardless of last_processed time to ensure we don't miss any data
                                     seven_days_ago = datetime.now() - timedelta(days=7)
-                                    
-                                    # CRITICAL FIX: Include all files, regardless of date
+
+                                    # CRITICAL FIX: Immediately include all files, regardless of date
                                     # This ensures that all files are processed during historical parsing
-                                    logger.info(f"CRITICAL FIX: Including file {filename} regardless of date comparison")
+                                    logger.info(f"CRITICAL FIX: Including file {filename} with date {file_date} regardless of date comparison")
                                     new_files.append(f)
                                     # Comment out old exclusion logic:
                                     # if file_date > last_time_date or file_date >= seven_days_ago:
@@ -1204,10 +1204,10 @@ class CSVProcessorCog(commands.Cog):
                                             last_time_date = datetime.strptime(last_time_str, "%Y.%m.%d-%H.%M.%S")
                                             logger.info(f"Successfully parsed date {file_date_str} as {file_date}")
                                             parsed = True
-                                            
+
                                             # Apply the same logic as above - include files from last 7 days
                                             seven_days_ago = datetime.now() - timedelta(days=7)
-                                            
+
                                             # CRITICAL FIX: Immediately include all files, regardless of date
                                             # This ensures that all files are processed during historical parsing
                                             logger.info(f"CRITICAL FIX: Including file {filename} with date {file_date} regardless of date comparison")
@@ -1222,7 +1222,7 @@ class CSVProcessorCog(commands.Cog):
                                             break
                                         except ValueError:
                                             continue
-                                    
+
                                     # If we have a date parsing error even after all formats, include the file by default
                                     if not parsed:
                                         logger.warning(f"Error parsing date from {file_date_str}: {e}, including file by default")
@@ -1235,7 +1235,7 @@ class CSVProcessorCog(commands.Cog):
                         # Log what we found
                         logger.info(f"Found {len(new_files)} new CSV files out of {len(csv_files)} total in {deathlogs_path}")
                         logger.info(f"Skipped {len(skipped_files)} CSV files as they are older than {last_time_str}")
-                        
+
                         if len(csv_files) > 0 and len(new_files) == 0:
                             # Show a sample of the CSV files and the last_time_str for debugging
                             sample = csv_files[:3] if len(csv_files) > 3 else csv_files
@@ -1265,7 +1265,7 @@ class CSVProcessorCog(commands.Cog):
                         events_processed = 0
 
                         logger.info(f"Starting to process {len(new_files)} CSV files")
-                        
+
                         # Sort files by date to ensure we process in chronological order
                         # Extract date from filename for proper sorting
                         def get_file_date(file_path):
@@ -1278,7 +1278,7 @@ class CSVProcessorCog(commands.Cog):
                                 # If parsing fails, return a default old date
                                 logger.warning(f"Unable to parse date from filename: {file_path}")
                                 return datetime(2000, 1, 1)
-                                
+
                         # Sort files by their embedded date for chronological processing
                         sorted_files = sorted(new_files, key=get_file_date)
                         logger.warning(f"CRITICAL DEBUG: Sorted {len(sorted_files)} files chronologically for processing")
@@ -1286,7 +1286,7 @@ class CSVProcessorCog(commands.Cog):
                             logger.warning(f"CRITICAL DEBUG: First 3 sorted files: {[os.path.basename(f) for f in sorted_files[:3]]}")
                         else:
                             logger.warning("CRITICAL DEBUG: No files to process after sorting!")
-                        
+
                         # Determine which files to process based on historical vs. regular processing
                         # - Historical processor will read all CSV files
                         # - Regular killfeed parser will only read new lines from the newest CSV
@@ -1297,13 +1297,13 @@ class CSVProcessorCog(commands.Cog):
                             logger.info(f"Start date is {start_date}, days difference is {days_diff}")
                         else:
                             logger.info("No start date provided, using default 24-hour window")
-                            
+
                         # OVERRIDE FOR DEBUGGING: Force historical mode to ensure all files are processed
                         is_historical_mode = True
                         logger.warning("CRITICAL DEBUG: FORCING historical mode to process all files completely")
                         files_to_process = sorted_files
                         only_new_lines = False  # Process all lines
-                        
+
                         # Original logic (commented out for testing)
                         # if is_historical_mode:
                         #     logger.info("Running in historical mode - processing all lines from all files")
@@ -1320,10 +1320,10 @@ class CSVProcessorCog(commands.Cog):
                         #         logger.info("No files to process after date filtering")
                         #         files_to_process = []
                         #         only_new_lines = False
-                                
+
                         logger.info(f"CSV processing mode: Historical={is_historical_mode}, " + 
                                   f"Start date={start_date}, Files to process={len(files_to_process)}")
-                                  
+
                         if len(files_to_process) == 0:
                             logger.warning(f"CRITICAL DEBUG: No files to process. Length of sorted_files={len(sorted_files)}")
                             # Check where the filtering might be happening
@@ -1336,18 +1336,19 @@ class CSVProcessorCog(commands.Cog):
                                 logger.warning(f"CRITICAL DEBUG: Historical mode: {is_historical_mode}")
                         else:
                             logger.info(f"CRITICAL DEBUG: Files ready for processing: {[os.path.basename(f) for f in files_to_process[:3]]}")
-                        
+
                         for file in files_to_process:
                             try:
                                 # Download file content - use the correct path
                                 file_path = file  # file is already the full path
                                 logger.warning(f"CRITICAL DEBUG: Now downloading CSV file from: {file_path}")
-                                
+
                                 # Try downloaded file for one of our attached_assets samples for debugging/testing
                                 try_attached_assets = True  # Set to True to enable testing with local files
-                                
+
                                 # Special handling for local files in the attached_assets directory
                                 if 'attached_assets' in file_path:
+```text
                                     logger.warning(f"CRITICAL DEBUG: Using local file reading for {file_path}")
                                     try:
                                         with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
@@ -1359,10 +1360,10 @@ class CSVProcessorCog(commands.Cog):
                                 else:
                                     try:
                                         logger.warning(f"EMERGENCY FIX: Attempting enhanced download for file: {file_path}")
-                                        
+
                                         # First attempt: Use the standard download method
                                         content = await sftp.download_file(file_path)
-                                        
+
                                         # Check if we got content
                                         if content:
                                             content_bytes = len(content)
@@ -1379,7 +1380,7 @@ class CSVProcessorCog(commands.Cog):
                                                         logger.warning(f"EMERGENCY FIX: Successfully accessed file directly: {file_path} ({content_bytes} bytes)")
                                             except Exception as direct_error:
                                                 logger.error(f"EMERGENCY FIX: Direct SFTP access failed: {str(direct_error)}")
-                                                
+
                                             # Third attempt: Try a local test file as a last resort
                                             if not content and try_attached_assets and os.path.exists('attached_assets'):
                                                 logger.warning(f"EMERGENCY FIX: All SFTP attempts failed, checking attached_assets directory")
@@ -1399,12 +1400,12 @@ class CSVProcessorCog(commands.Cog):
                                 if content:
                                     content_length = len(content) if hasattr(content, '__len__') else 0
                                     logger.info(f"Downloaded content type: {type(content)}, length: {content_length}")
-                                    
+
                                     # Verify the content is not empty
                                     if content_length == 0:
                                         logger.warning(f"Empty content downloaded from {file_path} - skipping processing")
                                         continue
-                                    
+
                                     # Handle different types of content returned from download_file
                                     if isinstance(content, bytes):
                                         # Normal case - bytes returned
@@ -1420,36 +1421,36 @@ class CSVProcessorCog(commands.Cog):
                                     else:
                                         # Handle any other case by converting to string
                                         decoded_content = str(content)
-                                    
+
                                     # Verify decoded content has actual substance
                                     if not decoded_content or len(decoded_content.strip()) == 0:
                                         logger.warning(f"Empty decoded content from {file_path} - skipping processing")
                                         continue
-                                    
+
                                     # Log a sample of the content for debugging
                                     sample = decoded_content[:200] + "..." if len(decoded_content) > 200 else decoded_content
                                     logger.info(f"CSV content sample: {sample}")
-                                    
+
                                     # Process content - determine if we should only process new lines
                                     events = []
-                                    
+
                                     # module: csv_event_parsing
                                     # Validate content before parsing to ensure CSV correctness per Rule #5 and #6
                                     if ";" not in decoded_content and "," not in decoded_content:
                                         logger.warning(f"CSV file {file_path} contains no valid delimiters, likely corrupted")
                                         continue
-                                        
+
                                     # Enhanced delimiter detection with bias towards semicolons
                                     semicolon_count = decoded_content.count(';')
                                     comma_count = decoded_content.count(',')
                                     tab_count = decoded_content.count('\t')
-                                    
+
                                     # Apply a weight factor to prioritize semicolons
                                     # Game logs commonly use semicolons and we want to prioritize them
                                     weighted_semicolon_count = semicolon_count * 3  # Triple the weight for semicolons
-                                    
+
                                     logger.debug(f"Delimiter detection: semicolons={semicolon_count} (weighted: {weighted_semicolon_count}), commas={comma_count}, tabs={tab_count}")
-                                    
+
                                     # Determine the most likely delimiter with semicolon bias
                                     detected_delimiter = ';'  # Default for our format
                                     if comma_count > weighted_semicolon_count and comma_count > tab_count:
@@ -1461,51 +1462,51 @@ class CSVProcessorCog(commands.Cog):
                                         if ';;' in decoded_content or ';;;' in decoded_content:
                                             logger.debug("Found multiple sequential semicolons, confirming semicolon delimiter")
                                             detected_delimiter = ';'
-                                        
+
                                     logger.info(f"Using detected delimiter: '{detected_delimiter}' for file {file_path}")
-                                            
+
                                     # Check for data rows that match expected format - minimum field count for kill events
                                     has_valid_data = False
                                     sample_lines = decoded_content.split('\n')[:20]  # Check first 20 lines for better detection
-                                    
+
                                     # Minimum field counts for different formats
                                     min_fields_for_kill = 6  # timestamp, killer, killer_id, victim, victim_id, weapon
-                                    
+
                                     for line in sample_lines:
                                         if not line or line.isspace():
                                             continue
-                                            
+
                                         # Count fields by delimiter (adding 1 since n delimiters = n+1 fields)
                                         field_count = line.count(detected_delimiter) + 1
-                                        
+
                                         # Check if this looks like a header line
                                         is_header = ('time' in line.lower() or 'date' in line.lower()) and \
                                                    ('killer' in line.lower() or 'player' in line.lower())
-                                        
+
                                         # If it's not a header and has enough fields, it might be valid data
                                         if not is_header and field_count >= min_fields_for_kill:
                                             # Additional quality check - make sure there's a timestamp-like pattern
                                             # Most timestamps have numbers and periods or hyphens
                                             fields = line.split(detected_delimiter)
                                             first_field = fields[0].strip() if fields else ""
-                                            
+
                                             # Looks like a timestamp if it has digits and separators
                                             looks_like_timestamp = any(c.isdigit() for c in first_field) and \
                                                                  any(c in '.-: ' for c in first_field)
-                                            
+
                                             if looks_like_timestamp:
                                                 has_valid_data = True
                                                 logger.debug(f"Found valid data row: {line[:50]}...")
                                                 break
-                                            
+
                                     if not has_valid_data:
                                         logger.warning(f"CSV file {file_path} doesn't contain properly formatted kill data")
                                         logger.warning(f"Sample line: {sample_lines[0] if sample_lines else 'No lines found'}")
                                         continue
-                                    
+
                                     # Convert validated content to StringIO for parsing
                                     content_io = io.StringIO(decoded_content)
-                                    
+
                                     try:
                                         # EMERGENCY FIX: Robust error handling with detailed logging
                                         max_retries = 3  # Increased retries
@@ -1514,25 +1515,25 @@ class CSVProcessorCog(commands.Cog):
                                                 # EMERGENCY FIX: ALWAYS process all lines regardless of only_new_lines flag
                                                 # This ensures maximum compatibility and file processing
                                                 logger.warning(f"EMERGENCY FIX: Forcing complete file processing for: {file_path}")
-                                                
+
                                                 # Reset the file pointer to start
                                                 content_io.seek(0)
-                                                
+
                                                 # Force historical mode (full processing) for all files
                                                 logger.warning(f"EMERGENCY FIX: Using historical mode for all files with delimiter: '{detected_delimiter}'")
-                                                
+
                                                 # COMPLETELY NEW APPROACH: Use direct CSV handler instead of standard parser
                                                 # Import here to avoid circular imports
                                                 from utils.direct_csv_handler import direct_parse_csv_content
-                                                
+
                                                 logger.warning(f"NEW DIRECT HANDLER: Processing file with specialized parser: {os.path.basename(file_path)}")
-                                                
+
                                                 # Reset the file pointer to start
                                                 content_io.seek(0)
-                                                
+
                                                 # Read the entire content as a string
                                                 content_str = content_io.read()
-                                                
+
                                                 # Process with direct parser
                                                 events = direct_parse_csv_content(
                                                     content_str,
@@ -1549,7 +1550,7 @@ class CSVProcessorCog(commands.Cog):
                                                 else:
                                                     # Last retry failed
                                                     raise
-                                        
+
                                         # Validate parsed events
                                         if events:
                                             logger.info(f"Parsed {len(events)} events from file {file_path}")
@@ -1562,59 +1563,59 @@ class CSVProcessorCog(commands.Cog):
                                     # BATCH PROCESSING IMPLEMENTATION
                                     processed_count = 0
                                     errors = []
-                                    
+
                                     # Import utility functions
                                     from utils.parser_utils import normalize_event_data, categorize_event, parser_coordinator
-                                    
+
                                     # Process in batches of 100 for better performance
                                     BATCH_SIZE = 100
                                     if len(events) > BATCH_SIZE:
                                         logger.info(f"Using batch processing for {len(events)} events")
                                         event_batches = [events[i:i+BATCH_SIZE] for i in range(0, len(events), BATCH_SIZE)]
                                         logger.info(f"Processing {len(events)} events in {len(event_batches)} batches of max {BATCH_SIZE}")
-                                        
+
                                         # Process each batch
                                         batch_num = 0
                                         for event_batch in event_batches:
                                             batch_num += 1
                                             batch_normalized = []
-                                            
+
                                             # Step 1: Normalize all events in batch
                                             for event in event_batch:
                                                 try:
                                                     normalized_event = normalize_event_data(event)
                                                     if not normalized_event:
                                                         continue
-                                                        
+
                                                     # Add server ID
                                                     normalized_event["server_id"] = server_id
-                                                    
+
                                                     # Update timestamp in coordinator
                                                     if "timestamp" in normalized_event and isinstance(normalized_event["timestamp"], datetime):
                                                         parser_coordinator.update_csv_timestamp(server_id, normalized_event["timestamp"])
-                                                        
+
                                                     # Add to batch
                                                     batch_normalized.append(normalized_event)
                                                 except Exception as e:
                                                     errors.append(str(e))
                                                     continue
-                                            
+
                                             # Step 2: Categorize batch into kill and suicide events
                                             kill_events = []
                                             suicide_events = []
-                                            
+
                                             for event in batch_normalized:
                                                 event_type = categorize_event(event)
                                                 if event_type == "kill":
                                                     kill_events.append(event)
                                                 elif event_type == "suicide":
                                                     suicide_events.append(event)
-                                            
+
                                             # Log batch summary (only for larger batches to reduce log spam)
                                             if batch_num % 5 == 0 or batch_num == 1 or batch_num == len(event_batches):
                                                 logger.info(f"Batch {batch_num}/{len(event_batches)}: {len(batch_normalized)} events normalized")
                                                 logger.info(f"Batch {batch_num} has {len(kill_events)} kills and {len(suicide_events)} suicides")
-                                            
+
                                             # Step 3: Bulk insert into database
                                             # 3a: Process kill events in bulk
                                             if kill_events:
@@ -1624,11 +1625,11 @@ class CSVProcessorCog(commands.Cog):
                                                     # Get fields with fallbacks
                                                     killer_id = event.get("killer_id", "")
                                                     victim_id = event.get("victim_id", "")
-                                                    
+
                                                     # Skip if missing essential IDs
                                                     if not killer_id or not victim_id:
                                                         continue
-                                                    
+
                                                     # Create document for database
                                                     kill_doc = {
                                                         "server_id": server_id,
@@ -1643,7 +1644,7 @@ class CSVProcessorCog(commands.Cog):
                                                         "event_type": "kill"
                                                     }
                                                     kill_docs.append(kill_doc)
-                                                
+
                                                 # Bulk insert the kill documents
                                                 if kill_docs:
                                                     try:
@@ -1653,7 +1654,7 @@ class CSVProcessorCog(commands.Cog):
                                                     except Exception as e:
                                                         logger.error(f"Error during bulk kill insert: {str(e)[:100]}")
                                                         # Continue processing other batches despite errors
-                                            
+
                                             # 3b: Process suicide events in bulk
                                             if suicide_events:
                                                 # Create the documents to insert
@@ -1663,7 +1664,7 @@ class CSVProcessorCog(commands.Cog):
                                                     # Skip if no valid ID
                                                     if not victim_id:
                                                         continue
-                                                    
+
                                                     # Create document for database
                                                     suicide_doc = {
                                                         "server_id": server_id,
@@ -1678,7 +1679,7 @@ class CSVProcessorCog(commands.Cog):
                                                         "event_type": "suicide"
                                                     }
                                                     suicide_docs.append(suicide_doc)
-                                                
+
                                                 # Bulk insert the suicide documents
                                                 if suicide_docs:
                                                     try:
@@ -1688,19 +1689,19 @@ class CSVProcessorCog(commands.Cog):
                                                     except Exception as e:
                                                         logger.error(f"Error during bulk suicide insert: {str(e)[:100]}")
                                                         # Continue processing other batches despite errors
-                                        
+
                                         # Final batch summary
                                         logger.info(f"Batch processing complete: {processed_count} events inserted successfully")
-                                        
+
                                     else:
                                         # Enhanced batch processing for smaller files too
                                         # Collect kill and suicide events for batch processing
                                         kill_events = []
                                         suicide_events = []
                                         processed_count = 0
-                                        
+
                                         logger.info(f"Using batch processing for {len(events)} events")
-                                        
+
                                         # Step 1: Normalize and categorize all events
                                         for event in events:
                                             try:
@@ -1708,27 +1709,27 @@ class CSVProcessorCog(commands.Cog):
                                                 normalized_event = normalize_event_data(event)
                                                 if not normalized_event:
                                                     continue
-                                                    
+
                                                 # Add server ID
                                                 normalized_event["server_id"] = server_id
-                                                
+
                                                 # Update timestamp in coordinator
                                                 if "timestamp" in normalized_event and isinstance(normalized_event["timestamp"], datetime):
                                                     parser_coordinator.update_csv_timestamp(server_id, normalized_event["timestamp"])
-                                                
+
                                                 # Process event type
                                                 event_type = categorize_event(normalized_event)
                                                 normalized_event["event_type"] = event_type
-                                                
+
                                                 # Validate IDs - using the improved validation from our _get_or_create_player method
                                                 killer_id = normalized_event.get("killer_id", "")
                                                 victim_id = normalized_event.get("victim_id", "")
-                                                
+
                                                 # Skip events with invalid IDs
                                                 if not killer_id or killer_id.lower() in ['null', 'none', 'undefined'] or \
                                                    not victim_id or victim_id.lower() in ['null', 'none', 'undefined']:
                                                     continue
-                                                
+
                                                 # Add to appropriate batch
                                                 if event_type == "kill":
                                                     kill_events.append(normalized_event)
@@ -1737,10 +1738,10 @@ class CSVProcessorCog(commands.Cog):
                                             except Exception as e:
                                                 errors.append(str(e))
                                                 logger.error(f"Error normalizing/categorizing event: {str(e)[:100]}")
-                                        
+
                                         # Report categorization results
                                         logger.info(f"Categorized events: {len(kill_events)} kills, {len(suicide_events)} suicides")
-                                        
+
                                         # Step 2: Process suicide events in batch
                                         if suicide_events:
                                             # Create documents for bulk insert
@@ -1758,7 +1759,7 @@ class CSVProcessorCog(commands.Cog):
                                                     "is_suicide": True,
                                                     "event_type": "suicide"
                                                 })
-                                            
+
                                             # Bulk insert suicide events
                                             if suicide_docs:
                                                 try:
@@ -1768,7 +1769,7 @@ class CSVProcessorCog(commands.Cog):
                                                     logger.info(f"Inserted {len(suicide_docs)} suicide events in batch")
                                                 except Exception as e:
                                                     logger.error(f"Error bulk inserting suicide events: {str(e)[:100]}")
-                                        
+
                                         # Step 3: Process kill events in batch
                                         if kill_events:
                                             # Create documents for bulk insert
@@ -1786,7 +1787,7 @@ class CSVProcessorCog(commands.Cog):
                                                     "is_suicide": False,
                                                     "event_type": "kill"
                                                 })
-                                            
+
                                             # Bulk insert kill events
                                             if kill_docs:
                                                 try:
@@ -1796,57 +1797,57 @@ class CSVProcessorCog(commands.Cog):
                                                     logger.info(f"Inserted {len(kill_docs)} kill events in batch")
                                                 except Exception as e:
                                                     logger.error(f"Error bulk inserting kill events: {str(e)[:100]}")
-                                                    
+
                                         # Step 4: Process player stats for unique players
                                         # This is more efficient than updating per-event
                                         # Create player lookup sets for batch processing player stats
                                         try:
                                             from models.player import Player
-                                            
+
                                             # Collect unique player IDs
                                             unique_players = {}  # player_id -> {kills, deaths, suicides}
-                                            
+
                                             # Count kills for killers, deaths for victims 
                                             for event in kill_events:
                                                 killer_id = event.get("killer_id")
                                                 victim_id = event.get("victim_id")
-                                                
+
                                                 # Add killer stats
                                                 if killer_id not in unique_players:
                                                     unique_players[killer_id] = {"kills": 0, "deaths": 0, "suicides": 0, "name": event.get("killer_name", "Unknown")}
                                                 unique_players[killer_id]["kills"] += 1
-                                                
+
                                                 # Add victim stats
                                                 if victim_id not in unique_players:
                                                     unique_players[victim_id] = {"kills": 0, "deaths": 0, "suicides": 0, "name": event.get("victim_name", "Unknown")}
                                                 unique_players[victim_id]["deaths"] += 1
-                                                
+
                                             # Count suicides
                                             for event in suicide_events:
                                                 player_id = event.get("victim_id")
-                                                
+
                                                 # Add player stats
                                                 if player_id not in unique_players:
                                                     unique_players[player_id] = {"kills": 0, "deaths": 0, "suicides": 0, "name": event.get("victim_name", "Unknown")}
                                                 unique_players[player_id]["suicides"] += 1
-                                            
+
                                             # Update stats for each unique player
                                             logger.info(f"Updating stats for {len(unique_players)} unique players")
                                             for player_id, stats in unique_players.items():
                                                 # Get or create player
                                                 player = await self._get_or_create_player(server_id, player_id, stats["name"])
-                                                
+
                                                 if player:
                                                     # Update stats
                                                     await player.update_stats(self.bot.db, 
                                                                             kills=stats["kills"], 
                                                                             deaths=stats["deaths"], 
                                                                             suicides=stats["suicides"])
-                                            
+
                                             # Update nemesis/prey relationships in bulk
                                             logger.info(f"Updating nemesis/prey relationships")
                                             await Player.update_all_nemesis_and_prey(self.bot.db, server_id)
-                                            
+
                                         except Exception as e:
                                             logger.error(f"Error processing player stats in batch: {str(e)[:150]}")
                                             logger.error(f"Will continue with event recording even if player stats update failed")
@@ -1875,7 +1876,7 @@ class CSVProcessorCog(commands.Cog):
                         try:
                             # Force garbage collection to release memory
                             import gc
-                            
+
                             # Clear any large local variables
                             if 'csv_parser_data' in locals():
                                 del csv_parser_data
@@ -1895,13 +1896,13 @@ class CSVProcessorCog(commands.Cog):
                                 del kill_docs
                             if 'suicide_docs' in locals():
                                 del suicide_docs
-                                
+
                             # Run garbage collection
                             collected = gc.collect()
                             logger.info(f"Memory optimization: freed {collected} objects after CSV processing")
                         except Exception as mem_err:
                             logger.warning(f"Memory optimization failed: {mem_err}")
-                            
+
                         # Keep the connection open for the next operation
                         return files_processed, events_processed
 
@@ -1917,25 +1918,25 @@ class CSVProcessorCog(commands.Cog):
                 files_processed = 0
                 events_processed = 0
                 return files_processed, events_processed
-            
+
         # Finalization code moved outside of the try-except block
         logger.debug(f"CSV processing completed for server {server_id}")
-        
+
         # Final memory optimization
         try:
             import gc
             collected = gc.collect()
-            logger.info(f"Final memory optimization: freed {collected} objects at completion")
+            logger.info(f"Final memory optimization: freed {collected} objects at completion}")
         except:
             pass
-            
+
         # Return the values
         return files_processed, events_processed
 
     async def run_historical_parse_with_config(self, server_id: str, server_config: Dict[str, Any], 
                                   days: int = 30, guild_id: Optional[str] = None) -> Tuple[int, int]:
         """Run a historical parse for a server using direct configuration.
-        
+
         This enhanced method accepts a complete server configuration object to bypass resolution issues,
         ensuring we have all the necessary details even for newly added servers.
 
@@ -1956,7 +1957,7 @@ class CSVProcessorCog(commands.Cog):
                 server_id=server_id,
                 days=days
             )
-            
+
             if files_processed > 0:
                 logger.warning(f"DIRECT CSV PROCESSING SUCCESS: Processed {files_processed} files with {events_inserted} events")
                 return files_processed, events_inserted
@@ -1965,20 +1966,20 @@ class CSVProcessorCog(commands.Cog):
         except Exception as e:
             logger.error(f"DIRECT CSV PROCESSING ERROR: {e}")
             logger.error(f"Trace: {traceback.format_exc()}")
-        
+
         # SOLUTION 2: Try standalone historical parser (second most reliable)
         logger.warning(f"PLAN B: Using standalone parser for server {server_id}")
         try:
             # Import the standalone module
             from fix_historical_parser import standalone_historical_parser
-            
+
             # Run the standalone parser with the database connection
             files_processed, events_inserted = await standalone_historical_parser(
                 server_id=server_id,
                 days=days,
                 db=self.bot.db
             )
-            
+
             if files_processed > 0:
                 logger.warning(f"STANDALONE PARSER SUCCESS: Processed {files_processed} files with {events_inserted} events")
                 return files_processed, events_inserted
@@ -1987,24 +1988,24 @@ class CSVProcessorCog(commands.Cog):
         except Exception as e:
             logger.error(f"STANDALONE PARSER ERROR: {e}")
             logger.error(f"Trace: {traceback.format_exc()}")
-            
+
         # SOLUTION 3: Continue with legacy implementation as last resort
         logger.info(f"Starting historical parse with direct config for server {server_id}, looking back {days} days")
-        
+
         # Configure processing start time based on requested days
         start_date = datetime.now() - timedelta(days=days)
         logger.info(f"Historical parse will check files from {start_date.strftime('%Y-%m-%d')} until now")
-        
+
         # Set the last processed time for this server
         self.last_processed[server_id] = start_date
-        
+
         # Ensure original_server_id is present in config
         original_server_id = server_config.get("original_server_id")
         if original_server_id:
             logger.info(f"Using original_server_id {original_server_id} from provided config")
         else:
             logger.warning(f"No original_server_id in provided config, paths may use UUID format")
-        
+
         # Process the server directly with provided configuration
         async with self.processing_lock:
             self.is_processing = True
@@ -2021,7 +2022,7 @@ class CSVProcessorCog(commands.Cog):
                 return 0, 0
             finally:
                 self.is_processing = False
-    
+
     async def run_historical_parse(self, server_id: str, days: int = 30, guild_id: Optional[str] = None) -> Tuple[int, int]:
         """Run a historical parse for a server, checking further back in time
 
@@ -2038,13 +2039,13 @@ class CSVProcessorCog(commands.Cog):
         """
         # Record the starting ID for logging
         raw_input_id = server_id if server_id is not None else ""
-        
+
         # Import identity resolver functions
         from utils.server_utils import safe_standardize_server_id
         from utils.server_identity import resolve_server_id, identify_server, KNOWN_SERVERS
-        
+
         logger.info(f"Starting historical parse for server {raw_input_id}, looking back {days} days")
-        
+
         # DIRECT APPROACH: Try direct CSV processing first before any complicated server resolution
         logger.warning(f"DIRECT APPROACH: Try direct CSV processing for {raw_input_id} before complicated resolution")
         try:
@@ -2052,7 +2053,7 @@ class CSVProcessorCog(commands.Cog):
                 server_id=raw_input_id,
                 days=days
             )
-            
+
             if files_processed > 0:
                 logger.warning(f"DIRECT CSV PROCESSING SUCCESS: Processed {files_processed} files with {events_inserted} events")
                 return files_processed, events_inserted
@@ -2061,55 +2062,55 @@ class CSVProcessorCog(commands.Cog):
         except Exception as e:
             logger.error(f"DIRECT CSV PROCESSING ERROR: {e}")
             logger.error(traceback.format_exc())
-        
-        # STEP 1: Try to resolve the server ID comprehensively using our new function
+
+                # STEP 1: Try to resolve the server ID comprehensively using our new function
         server_resolution = await resolve_server_id(self.bot.db, server_id, guild_id)
         if server_resolution:
             resolved_server_id = server_resolution.get("server_id")
             original_server_id = server_resolution.get("original_server_id")
             server_config = server_resolution.get("config")
             collection = server_resolution.get("collection")
-            
+
             logger.info(f"Enhanced server resolution found server: {server_id} → {resolved_server_id} "
                       f"(original_id: {original_server_id}, found in {collection})")
-                      
+
             # We have a direct server configuration from resolution
             if server_config:
                 # Configure processing start time based on requested days
                 start_date = datetime.now() - timedelta(days=days)
                 logger.info(f"Historical parse will check files from {start_date.strftime('%Y-%m-%d')} until now")
-                
+
                 # Set the last processed time for this server
                 self.last_processed[resolved_server_id] = start_date
-                
+
                 # CRITICAL IMPROVEMENT: Clear existing data for this server first
                 # This ensures we can reprocess everything from scratch without duplication
                 try:
                     logger.info(f"Clearing existing data for server {resolved_server_id} before historical parse")
-                    
+
                     # Delete all kill events for this server
                     kill_result = await self.bot.db.kills.delete_many({"server_id": resolved_server_id})
                     logger.info(f"Deleted {kill_result.deleted_count} existing kill events for server {resolved_server_id}")
-                    
+
                     # Update player stats to reset kill/death/suicide counts
                     player_reset = await self.bot.db.players.update_many(
                         {"server_id": resolved_server_id},
                         {"$set": {"kills": 0, "deaths": 0, "suicides": 0, "updated_at": datetime.utcnow()}}
                     )
                     logger.info(f"Reset stats for {player_reset.modified_count} players for server {resolved_server_id}")
-                    
+
                     # Clear rivalry data
                     rivalry_result = await self.bot.db.rivalries.delete_many({"server_id": resolved_server_id})
                     logger.info(f"Deleted {rivalry_result.deleted_count} existing rivalries for server {resolved_server_id}")
-                    
+
                     # Force garbage collection to free up memory
                     import gc
                     gc.collect()
                     logger.info("Forced garbage collection after data clearing")
-                    
+
                 except Exception as e:
                     logger.error(f"Error clearing existing data: {e}")
-                
+
                 # Process CSV files with the directly resolved configuration
                 async with self.processing_lock:
                     self.is_processing = True
@@ -2126,19 +2127,19 @@ class CSVProcessorCog(commands.Cog):
                         return 0, 0
                     finally:
                         self.is_processing = False
-        
+
         # STEP 2: Fall back to traditional method if direct resolution failed
         logger.info(f"Direct server resolution failed or returned no config, falling back to traditional lookup")
-        
+
         # Standardize server ID and check for numeric ID
         server_id = safe_standardize_server_id(raw_input_id)
         original_numeric_id = None
-        
+
         # Check if this is a numeric ID (like "7020") being used directly
         if server_id and server_id.isdigit():
             original_numeric_id = server_id
             logger.info(f"Received numeric ID {original_numeric_id} for historical parse")
-            
+
             # Look for a matching server in KNOWN_SERVERS by value
             found_uuid = None
             for uuid, numeric in KNOWN_SERVERS.items():
@@ -2146,16 +2147,16 @@ class CSVProcessorCog(commands.Cog):
                     found_uuid = uuid
                     logger.info(f"Mapped numeric ID {original_numeric_id} to UUID {found_uuid}")
                     break
-            
+
             if found_uuid:
                 server_id = found_uuid
             else:
                 logger.warning(f"Could not find UUID for numeric ID {original_numeric_id} in KNOWN_SERVERS")
-        
+
         # Get all server configurations
         server_configs = await self._get_server_configs()
         logger.info(f"Traditional lookup found server configs: {list(server_configs.keys())}")
-        
+
         # Try to find the server in our configurations
         if server_id not in server_configs:
             # Try by original_server_id if we have one
@@ -2165,51 +2166,51 @@ class CSVProcessorCog(commands.Cog):
                         server_id = config_id
                         logger.info(f"Found server by original_server_id {original_numeric_id}: {server_id}")
                         break
-            
+
             # Try by numeric matching if needed
             if server_id not in server_configs and server_id and str(server_id).isdigit():
                 numeric_matches = [sid for sid in server_configs.keys() if str(sid).isdigit() and int(sid) == int(server_id)]
                 if numeric_matches:
                     server_id = numeric_matches[0]
                     logger.info(f"Found server using numeric matching: {server_id}")
-            
+
             # If still not found, give up
             if server_id not in server_configs:
                 logger.error(f"Server {raw_input_id} not found in configs during historical parse")
                 return 0, 0
-        
+
         # Configure the processing window
         start_date = datetime.now() - timedelta(days=days)
         self.last_processed[server_id] = start_date
-        
+
         # CRITICAL IMPROVEMENT: Clear existing data for this server first
         # This ensures we can reprocess everything from scratch without duplication
         try:
             logger.info(f"Clearing existing data for server {server_id} before historical parse (traditional method)")
-            
+
             # Delete all kill events for this server
             kill_result = await self.bot.db.kills.delete_many({"server_id": server_id})
             logger.info(f"Deleted {kill_result.deleted_count} existing kill events for server {server_id}")
-            
+
             # Update player stats to reset kill/death/suicide counts
             player_reset = await self.bot.db.players.update_many(
                 {"server_id": server_id},
                 {"$set": {"kills": 0, "deaths": 0, "suicides": 0, "updated_at": datetime.utcnow()}}
             )
             logger.info(f"Reset stats for {player_reset.modified_count} players for server {server_id}")
-            
+
             # Clear rivalry data
             rivalry_result = await self.bot.db.rivalries.delete_many({"server_id": server_id})
             logger.info(f"Deleted {rivalry_result.deleted_count} existing rivalries for server {server_id}")
-            
+
             # Force garbage collection to free up memory
             import gc
             gc.collect()
             logger.info("Forced garbage collection after data clearing (traditional method)")
-            
+
         except Exception as e:
             logger.error(f"Error clearing existing data (traditional method): {e}")
-        
+
         # Process CSV files with the traditional method
         async with self.processing_lock:
             self.is_processing = True
@@ -2397,7 +2398,7 @@ class CSVProcessorCog(commands.Cog):
         # 1. Direct CSV processing from attached_assets directory (most reliable)
         # 2. Standalone historical parser that bypasses the complex infrastructure
         # 3. Legacy approach with SFTP connections (least reliable)
-        
+
         await interaction.response.defer(ephemeral=True)
 
         # Import standardization function
@@ -2479,13 +2480,13 @@ class CSVProcessorCog(commands.Cog):
                         "is_suicide": False,
                         "timestamp": {"$gte": datetime.now() - timedelta(days=safe_days)}
                     })
-                    
+
                     suicides_count = await self.bot.db.kills.count_documents({
                         "server_id": server_id,
                         "is_suicide": True,
                         "timestamp": {"$gte": datetime.now() - timedelta(days=safe_days)}
                     })
-                    
+
                     # Count unique players involved
                     pipeline = [
                         {"$match": {
@@ -2498,19 +2499,19 @@ class CSVProcessorCog(commands.Cog):
                             "unique_victims": {"$addToSet": "$victim_id"}
                         }}
                     ]
-                    
+
                     result = await self.bot.db.kills.aggregate(pipeline).to_list(length=1)
-                    
+
                     unique_killers = len(result[0]["unique_killers"]) if result else 0
                     unique_victims = len(result[0]["unique_victims"]) if result else 0
-                    
+
                     # Calculate unique players (combined set)
                     unique_players = unique_killers + unique_victims - (len(set(result[0]["unique_killers"]) & set(result[0]["unique_victims"])) if result else 0)
-                    
+
                     # Calculate percentages
                     kill_percent = (kills_count / events_processed) * 100 if events_processed > 0 else 0
                     suicide_percent = (suicides_count / events_processed) * 100 if events_processed > 0 else 0
-                    
+
                     # Build enhanced description
                     description = (
                         f"**Process Summary:**\n"
@@ -2525,11 +2526,11 @@ class CSVProcessorCog(commands.Cog):
                         f"• Victims: **{unique_victims}**\n\n"
                         f"_Looking back {safe_days} days from today_"
                     )
-                    
+
                 except Exception as e:
                     logger.error(f"Error calculating enhanced statistics: {str(e)}")
                     description = f"Processed {files_processed} historical file(s) with {events_processed} death events."
-                
+
                 embed = EmbedBuilder.success(
                     title="Historical Parsing Complete",
                     description=description
@@ -2628,16 +2629,16 @@ class CSVProcessorCog(commands.Cog):
             weapon = event.get("weapon", "Unknown")
             distance = event.get("distance", 0)
             timestamp = event.get("timestamp", datetime.utcnow())
-            
+
             # Get the event_type directly from the normalized event
             event_type = event.get("event_type")
-            
+
             # If event_type not present, determine it using the categorize_event function
             if not event_type:
                 from utils.parser_utils import categorize_event
                 event_type = categorize_event(event)
                 logger.debug(f"Determined event_type using categorize_event: {event_type}")
-            
+
             # Set suicide flag based on event type
             is_suicide = (event_type == "suicide")
             logger.debug(f"Processing event: type={event_type}, is_suicide={is_suicide}")
@@ -2655,14 +2656,14 @@ class CSVProcessorCog(commands.Cog):
                             "%Y-%m-%d %H:%M:%S",
                             "%Y-%m-%d %H:%M:%S.%f"
                         ]
-                        
+
                         for fmt in common_formats:
                             try:
                                 timestamp = datetime.strptime(timestamp, fmt)
                                 break
                             except ValueError:
                                 continue
-                        
+
                         # If we still have a string, use current time
                         if isinstance(timestamp, str):
                             logger.warning(f"Could not parse timestamp: {timestamp}, using current time")
@@ -2670,7 +2671,7 @@ class CSVProcessorCog(commands.Cog):
                     except Exception as e:
                         logger.error(f"Error parsing timestamp '{timestamp}': {e}")
                         timestamp = datetime.utcnow()
-            
+
             # For suicide events, ensure killer_id matches victim_id
             if is_suicide:
                 if killer_id != victim_id:
@@ -2690,7 +2691,7 @@ class CSVProcessorCog(commands.Cog):
 
                 # Update suicide count
                 await victim.update_stats(self.bot.db, kills=0, deaths=0, suicides=1)
-                
+
                 # Insert suicide event into database for consistent record-keeping
                 suicide_doc = {
                     "server_id": server_id,
@@ -2704,7 +2705,7 @@ class CSVProcessorCog(commands.Cog):
                     "is_suicide": True,
                     "event_type": "suicide"
                 }
-                
+
                 await self.bot.db.kills.insert_one(suicide_doc)
                 logger.info(f"Recorded suicide event for player {victim_name} ({victim_id})")
                 return True
@@ -2764,12 +2765,12 @@ class CSVProcessorCog(commands.Cog):
             Player object or None if invalid data
         """
         from models.player import Player
-        
+
         # Validate IDs first to prevent database errors
         if not player_id or player_id.lower() in ['null', 'none', 'undefined']:
             logger.warning(f"Invalid player_id: '{player_id}' for player '{player_name}' - skipping")
             return None
-            
+
         if not server_id or server_id.lower() in ['null', 'none', 'undefined']:
             logger.warning(f"Invalid server_id: '{server_id}' for player '{player_name}' - skipping")
             return None
@@ -2804,14 +2805,14 @@ class CSVProcessorCog(commands.Cog):
                     return None
 
             return player
-            
+
         except Exception as e:
             logger.error(f"Error in _get_or_create_player for {player_name} ({player_id}): {str(e)[:100]}")
             return None
 
 async def setup(bot: Any) -> None:
     """Set up the CSV processor cog
-    
+
     Args:
         bot: Discord bot instance with db property
     """

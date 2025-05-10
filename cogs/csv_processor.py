@@ -1038,9 +1038,11 @@ class CSVProcessorCog(commands.Cog):
                             logger.error(f"No CSV files found in SFTP location for server {server_id}")
                             logger.error(f"Please check SFTP configuration and connectivity")
                             return 0, 0
-                                    if os.path.exists(test_dir):
-                                        logger.info(f"ALLOW_LOCAL_FILES=1: Checking attached_assets directory for CSV files")
-                                        test_files = []
+                                    # Log any errors encountered
+                        if not csv_files or len(csv_files) == 0:
+                            logger.error(f"No CSV files found in SFTP location for server {server_id}")
+                            logger.error(f"Please check SFTP configuration and connectivity")
+                            return 0, 0
                                         for filename in os.listdir(test_dir):
                                             if filename.endswith(".csv") and re.match(r'\d{4}\.\d{2}\.\d{2}-\d{2}\.\d{2}\.\d{2}\.csv$', filename):
                                                 test_files.append(os.path.join(test_dir, filename))

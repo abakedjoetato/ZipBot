@@ -1,2 +1,3 @@
 
-worker: python run_discord_bot.py
+worker: python main.py
+web: gunicorn app:app

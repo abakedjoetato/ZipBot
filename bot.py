@@ -18,8 +18,21 @@ from discord.ext.commands import Bot, Cog
 from discord import app_commands
 from discord.app_commands import Choice
 
-# For compatibility, use discord's enums instead of AppCommandOptionType
-from discord import AppCommandOptionType
+# For compatibility with different discord libraries, use import try/except
+try:
+    from discord import AppCommandOptionType
+except ImportError:
+    # Define a fallback for compatibility
+    class AppCommandOptionType:
+        STRING = 3
+        INTEGER = 4
+        BOOLEAN = 5
+        USER = 6
+        CHANNEL = 7
+        ROLE = 8
+        MENTIONABLE = 9
+        NUMBER = 10
+        ATTACHMENT = 11
 
 # Import additional helper functions from discord_compat
 from utils.discord_compat import command, describe, autocomplete, guild_only

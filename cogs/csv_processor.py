@@ -1033,17 +1033,11 @@ class CSVProcessorCog(commands.Cog):
                         # Log the cutoff time being used
                         logger.info(f"Processing files newer than: {last_time_str}")
                         
-                        # In production with real servers, don't fall back to local test files (Rule #11)
-                        # Only use local files if SFTP completely fails and we have no other option
+                        # If no CSV files found via SFTP, log error and return
                         if not csv_files or len(csv_files) == 0:
-                            # Check if we already tried using attached_assets to avoid duplicate processing
-                            if path_found != "attached_assets":
-                                logger.warning(f"No CSV files found in SFTP locations - this may indicate a configuration issue")
-                                logger.info(f"Rule #11: Avoiding test shortcuts in production - SFTP files are required")
-                                
-                                # Only use attached_assets if explicitly requested for development or testing
-                                if os.environ.get("ALLOW_LOCAL_FILES") == "1":
-                                    test_dir = "./attached_assets"
+                            logger.error(f"No CSV files found in SFTP location for server {server_id}")
+                            logger.error(f"Please check SFTP configuration and connectivity")
+                            return 0, 0
                                     if os.path.exists(test_dir):
                                         logger.info(f"ALLOW_LOCAL_FILES=1: Checking attached_assets directory for CSV files")
                                         test_files = []

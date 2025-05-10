@@ -186,12 +186,10 @@ async def process_directory(db, server_id: str, days: int = 30) -> Tuple[int, in
     Returns:
         Tuple of (files_processed, events_imported)
     """
-    ASSETS_DIR = './attached_assets'
+    logger.info(f"Processing CSV files from SFTP for server {server_id}, looking back {days} days")
     
-    logger.info(f"Processing directory {ASSETS_DIR} for server {server_id}, looking back {days} days")
-    
-    if not os.path.exists(ASSETS_DIR):
-        logger.error(f"Directory {ASSETS_DIR} does not exist")
+    if not server_id:
+        logger.error("No server ID provided")
         return 0, 0
         
     # Find CSV files newer than cutoff date

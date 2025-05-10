@@ -361,8 +361,8 @@ class SFTPManager:
         self,
         hostname: str,
         port: int = 22,
-        username: str = None,
-        password: str = None,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
         timeout: int = 30,
         max_retries: int = 3,
         server_id: Optional[str] = None,
@@ -475,8 +475,8 @@ class SFTPManager:
             else:
                 # Use all available information for best match
                 numeric_id, is_known = identify_server(
-                    server_id=server_id,
-                    hostname=hostname,
+                    server_id=server_id or "",  # Ensure we pass a string, not None
+                    hostname=hostname or "",    # Ensure we pass a string, not None
                     server_name="",  # No name available at this level
                     guild_id=None  # No guild ID available at this level
                 )
@@ -726,12 +726,17 @@ class SFTPManager:
 
         try:
             if hasattr(self.client, 'list_files'):
-                return await self.client.list_files(directory, pattern)
+                return await self.client.list_files(directory, pattern or '')
             elif pattern is None and hasattr(self.client, '_sftp_client') and hasattr(self.client._sftp_client, 'listdir'):
-                return await self.client._sftp_client.listdir(directory)
+                # Make sure client is not None before accessing its attributes
+                if self.client and self.client._sftp_client:
+                    return await self.client._sftp_client.listdir(directory)
+                return []
             else:
                 # Fallback to find_files_by_pattern
-                return await self.client.find_files_by_pattern(directory, pattern or '.*', recursive=False)
+                if hasattr(self.client, 'find_files_by_pattern'):
+                    return await self.client.find_files_by_pattern(directory, pattern or '.*', recursive=False)
+                return []
         except Exception as e:
             logger.error(f"Failed to list files in {directory}: {e}")
             return []
@@ -769,13 +774,14 @@ class SFTPManager:
             logger.error(f"Failed to read file {remote_path}: {e}")
             return None
 
-    async def read_csv_lines(self, remote_path: str, encoding: str = 'utf-8', fallback_encodings: Optional[List[str]] = None) -> Optional[List[str]]:
+    async def read_csv_lines(self, remote_path: str, encoding: str = 'utf-8', fallback_encodings: Optional[List[str]] = None, timeout: Optional[float] = None) -> Optional[List[str]]:
         """Read CSV lines from a remote file
 
         Args:
             remote_path: Path to CSV file
             encoding: Encoding to use
             fallback_encodings: List of encodings to try if the primary encoding fails
+            timeout: Optional timeout for the operation in seconds
 
         Returns:
             Optional[List[str]]: List of CSV lines
@@ -785,7 +791,23 @@ class SFTPManager:
             return None
 
         try:
-            return await self.client.read_csv_lines(remote_path, encoding, fallback_encodings)
+            # Ensure we don't pass fallback_encodings as timeout
+            # This addresses a type issue in the method signature
+            if hasattr(self.client, 'read_csv_lines'):
+                # Check if the client's method accepts timeout
+                import inspect
+                client_method = getattr(self.client, 'read_csv_lines')
+                sig = inspect.signature(client_method)
+                
+                if 'timeout' in sig.parameters:
+                    return await self.client.read_csv_lines(remote_path, encoding, fallback_encodings, timeout)
+                else:
+                    # Fall back to original call without timeout
+                    return await self.client.read_csv_lines(remote_path, encoding, fallback_encodings)
+            else:
+                # Fall back to read_file if read_csv_lines doesn't exist
+                lines = await self.read_file(remote_path)
+                return lines
         except Exception as e:
             logger.error(f"Failed to read CSV lines from {remote_path}: {e}")
             return None

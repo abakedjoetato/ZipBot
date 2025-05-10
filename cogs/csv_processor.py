@@ -22,7 +22,7 @@ from discord import app_commands
 from discord.enums import AppCommandOptionType
 
 # Import custom utilities
-from utils.parser_utils import normalize_event_data, categorize_event, parser_coordinator
+# Note: parser_utils are imported in full below at line 59
 
 # Type definition for bot with db property
 class MotorDatabase(Protocol):

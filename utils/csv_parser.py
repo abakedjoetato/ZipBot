@@ -118,11 +118,11 @@ class CSVParser:
         self._last_processed_line_count = {}  # Reset line tracking
         logger.info("CSV parser cache cleared")
 
-    def parse_csv_data(self, data: Union[str, bytes], delimiter: Optional[str] = None) -> List[Dict[str, Any]]:
+    def parse_csv_data(self, data: Union[str, bytes, memoryview], delimiter: Optional[str] = None) -> List[Dict[str, Any]]:
         """Parse CSV data and return list of events
 
         Args:
-            data: CSV data string or bytes
+            data: CSV data string, bytes, or memoryview
             delimiter: Optional delimiter to use for CSV parsing (overrides auto-detection)
 
         Returns:
@@ -133,15 +133,25 @@ class CSVParser:
             logger.warning(f"Empty or blank CSV data provided")
             return []
             
-        # Convert bytes to string if needed
-        if isinstance(data, bytes):
-            data = data.decode("utf-8", errors="replace")
-        
-        # Ensure data is a string at this point
+        # Convert bytes, memoryview, or other types to string for processing
         if not isinstance(data, str):
             try:
-                data = str(data)
-                logger.warning(f"Converted non-string data of type {type(data).__name__} to string")
+                if isinstance(data, memoryview):
+                    try:
+                        data = bytes(data).decode("utf-8", errors="replace")
+                    except UnicodeDecodeError:
+                        data = bytes(data).decode("latin-1", errors="replace")
+                    logger.debug(f"Converted memoryview to string")
+                elif isinstance(data, bytes):
+                    try:
+                        data = data.decode("utf-8", errors="replace")
+                    except UnicodeDecodeError:
+                        # Fallback to latin-1 encoding if UTF-8 fails
+                        data = data.decode("latin-1", errors="replace")
+                    logger.debug("Converted bytes to string")
+                else:
+                    data = str(data)
+                    logger.warning(f"Converted non-string data of type {type(data).__name__} to string")
             except Exception as e:
                 logger.error(f"Cannot convert data to string: {e}")
                 return []
@@ -587,7 +597,7 @@ class CSVParser:
                                 if 1000000000 <= timestamp_int <= 2000000000:
                                     event[self.datetime_column] = datetime.fromtimestamp(timestamp_int)
                                     parsed = True
-                                    break
+                                    logger.debug(f"Parsed numeric timestamp {timestamp_str} as Unix timestamp")
                             except (ValueError, TypeError, OverflowError):
                                 pass
 
@@ -881,18 +891,31 @@ class CSVParser:
             sample = file_obj.read(min(chunk_size * 2, 16384))  # Read a sample (up to 16KB)
             file_obj.seek(0)  # Reset file position
 
-            if isinstance(sample, bytes):
-                sample_str = sample.decode('utf-8', errors='replace')
+            if isinstance(sample, memoryview):
+                try:
+                    sample_str = bytes(sample).decode('utf-8', errors='replace')
+                except UnicodeDecodeError:
+                    sample_str = bytes(sample).decode('latin-1', errors='replace')
+            elif isinstance(sample, bytes):
+                try:
+                    sample_str = sample.decode('utf-8', errors='replace')
+                except UnicodeDecodeError:
+                    sample_str = sample.decode('latin-1', errors='replace')
             else:
                 sample_str = sample
 
             # Try to detect CSV dialect
             try:
+                # Ensure sample_str is a string for the sniff function
+                if not isinstance(sample_str, str):
+                    logger.warning(f"Converting sample of type {type(sample_str)} to string")
+                    sample_str = str(sample_str)
+                    
                 dialect = csv.Sniffer().sniff(sample_str, delimiters=";,\t|")
                 logger.info(f"Detected CSV dialect with delimiter: {dialect.delimiter}")
-            except csv.Error:
+            except (csv.Error, TypeError) as e:
                 # Fallback to default format
-                logger.warning("Failed to detect CSV dialect, using default format")
+                logger.warning(f"Failed to detect CSV dialect: {str(e)}, using default format")
                 dialect = None
 
             # If we detected a dialect different from our configured separator, 
@@ -925,7 +948,12 @@ class CSVParser:
                 break  # End of file
 
             # Decode chunk
-            if isinstance(chunk, bytes):
+            if isinstance(chunk, memoryview):
+                try:
+                    chunk_str = bytes(chunk).decode('utf-8', errors='replace')
+                except UnicodeDecodeError:
+                    chunk_str = bytes(chunk).decode('latin-1', errors='replace')
+            elif isinstance(chunk, bytes):
                 try:
                     chunk_str = chunk.decode('utf-8', errors='replace')
                 except UnicodeDecodeError:
@@ -934,7 +962,29 @@ class CSVParser:
                 chunk_str = chunk
 
             # Append to buffer
-            buffer += chunk_str
+            # At this point chunk_str should already be a string from the previous conversion
+            # but we'll handle other types just to be safe
+            if isinstance(chunk_str, str):
+                buffer += chunk_str
+            elif isinstance(chunk_str, (bytes, bytearray)):
+                try:
+                    buffer += chunk_str.decode('utf-8', errors='replace')
+                except UnicodeDecodeError:
+                    buffer += chunk_str.decode('latin-1', errors='replace')
+                except Exception:
+                    # Last resort fallback
+                    buffer += str(chunk_str)
+            elif isinstance(chunk_str, memoryview):
+                try:
+                    buffer += bytes(chunk_str).decode('utf-8', errors='replace')
+                except UnicodeDecodeError:
+                    buffer += bytes(chunk_str).decode('latin-1', errors='replace')
+                except Exception:
+                    # Last resort fallback
+                    buffer += str(chunk_str)
+            else:
+                # Fallback for any other type
+                buffer += str(chunk_str)
 
             # Split buffer by newlines
             lines = buffer.split('\n')
@@ -1193,6 +1243,11 @@ class CSVParser:
 
             # Try to detect dialect
             try:
+                # Ensure sample_str is a string for the sniff function
+                if not isinstance(sample_str, str):
+                    logger.warning(f"Converting sample of type {type(sample_str)} to string")
+                    sample_str = str(sample_str)
+                
                 dialect = csv.Sniffer().sniff(sample_str, delimiters=";,\t|")
                 logger.info(f"Detected delimiter: {dialect.delimiter}")
 
@@ -1206,7 +1261,30 @@ class CSVParser:
 
                 # Determine pre-April vs post-April format
                 # Check the first line to determine the number of fields
-                first_line = sample_str.split('\n')[0].strip()
+                # Handle both string and binary data types
+                first_line = ""
+                
+                if isinstance(sample_str, str):
+                    lines = sample_str.split('\n')
+                    if lines:
+                        first_line = lines[0].strip()
+                elif isinstance(sample_str, (bytes, bytearray)):
+                    lines = sample_str.split(b'\n')
+                    if lines:
+                        try:
+                            first_line = lines[0].decode('utf-8', errors='replace').strip()
+                        except Exception:
+                            first_line = str(lines[0]).strip()
+                elif isinstance(sample_str, memoryview):
+                    # Convert memoryview to bytes first, then to string
+                    sample_bytes = bytes(sample_str)
+                    lines = sample_bytes.split(b'\n')
+                    if lines:
+                        try:
+                            first_line = lines[0].decode('utf-8', errors='replace').strip()
+                        except Exception:
+                            first_line = str(lines[0]).strip()
+                
                 if dialect.delimiter in first_line:
                     parts = first_line.split(dialect.delimiter)
                     num_fields = len(parts)
@@ -1375,11 +1453,24 @@ class CSVParser:
         Returns:
             str: Detected format name
         """
-        # Convert bytes to string if needed
-        if isinstance(data, bytes):
-            data = data.decode("utf-8", errors="replace")
-
-        # Create CSV reader for each format
+        # Convert bytes, memoryview, or other types to string for StringIO
+        if not isinstance(data, str):
+            try:
+                if isinstance(data, memoryview):
+                    data = bytes(data).decode("utf-8", errors="replace")
+                elif isinstance(data, bytes):
+                    try:
+                        data = data.decode("utf-8", errors="replace")
+                    except UnicodeDecodeError:
+                        # Fallback to latin-1 encoding if UTF-8 fails
+                        data = data.decode("latin-1", errors="replace")
+                else:
+                    data = str(data)
+                logger.debug(f"Converted {type(data).__name__} to string for processing")
+            except Exception as e:
+                logger.error(f"Failed to convert data to string: {e}")
+                return "deadside"  # Default format
+                
         csv_file = io.StringIO(data)
 
         try:

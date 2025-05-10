@@ -7,6 +7,8 @@ and posts results to the specified channel.
 import discord
 from discord.ext import commands
 from discord import app_commands
+# Import our compatibility layer
+from utils.discord_compat import command, describe
 import logging
 import asyncio
 from datetime import datetime, timezone, timedelta
@@ -22,15 +24,15 @@ class ProcessCSVCommandCog(commands.Cog):
         self.bot = bot
         self.processing_lock = asyncio.Lock()
     
-    @app_commands.command(
-        name="process_csv",
+    @command(
+        name="process_csv_fixed",
         description="Process CSV files with fixed timestamp format"
     )
-    @app_commands.describe(
+    @describe(
         days="Number of days to look back (default: 60)",
         target_channel="Channel to post results (default: current channel)"
     )
-    async def process_csv(
+    async def process_csv_fixed(
         self, 
         interaction: discord.Interaction, 
         days: int = 60, 
@@ -173,7 +175,7 @@ class ProcessCSVCommandCog(commands.Cog):
                     await target_channel.send(embed=embed)
                 
             except Exception as e:
-                logger.error(f"Error in process_csv command: {e}")
+                logger.error(f"Error in process_csv_fixed command: {e}")
                 # Update embed with error
                 embed.description = f"❌ Error in CSV processing: {str(e)}"
                 embed.color = discord.Color.red()

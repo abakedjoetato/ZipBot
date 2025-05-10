@@ -16,7 +16,7 @@ echo "  Starting from Replit Run Button"
 echo "====================================================="
 
 # Execute the bot with proper error handling
-python main.py
+python bot.py
 
 # Check exit code
 if [ $? -ne 0 ]; then

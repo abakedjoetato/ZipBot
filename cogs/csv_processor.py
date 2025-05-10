@@ -15,11 +15,11 @@ import time
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union, Tuple, cast, TypeVar, Protocol, TYPE_CHECKING, Coroutine
 
-# Import discord modules with direct py-cord 2.6.1 approach
+# Import discord modules with compatibility layer
 import discord
 from discord.ext import commands, tasks
 from discord import app_commands
-from discord.enums import AppCommandOptionType
+from utils.discord_compat import command, describe, AppCommandOptionType
 
 # Import custom utilities
 # Note: parser_utils are imported in full below at line 59

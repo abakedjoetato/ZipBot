@@ -53,3 +53,6 @@ python-dotenv
 py-cord==2.6.1
 discord-py
 py-cord==2.6.1
+py-cord
+asyncssh
+python-dotenv

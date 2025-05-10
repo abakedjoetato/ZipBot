@@ -19,7 +19,21 @@ from discord.ext import commands
 from discord.ext.commands import Bot, Cog
 from discord import app_commands
 from discord.app_commands import Choice
-from discord import AppCommandOptionType  # Import from main discord module
+# Try to import AppCommandOptionType directly, but provide a fallback if not available
+try:
+    from discord import AppCommandOptionType  # Import from main discord module
+except ImportError:
+    # Define compatibility class if not available
+    class AppCommandOptionType:
+        STRING = 3
+        INTEGER = 4
+        BOOLEAN = 5
+        USER = 6
+        CHANNEL = 7
+        ROLE = 8
+        MENTIONABLE = 9
+        NUMBER = 10
+        ATTACHMENT = 11
 
 # Log discord version
 logger.info(f"Using discord library version: {discord.__version__}")

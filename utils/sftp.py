@@ -800,10 +800,13 @@ class SFTPManager:
                 sig = inspect.signature(client_method)
                 
                 if 'timeout' in sig.parameters:
-                    return await self.client.read_csv_lines(remote_path, encoding, fallback_encodings, timeout)
+                    # Make sure we're passing parameters in the correct order
+                    # remote_path, encoding, timeout, fallback_encodings
+                    return await self.client.read_csv_lines(remote_path, encoding, timeout, fallback_encodings)
                 else:
                     # Fall back to original call without timeout
-                    return await self.client.read_csv_lines(remote_path, encoding, fallback_encodings)
+                    # Make sure we're not passing timeout as fallback_encodings
+                    return await self.client.read_csv_lines(remote_path, encoding, fallback_encodings=fallback_encodings)
             else:
                 # Fall back to read_file if read_csv_lines doesn't exist
                 lines = await self.read_file(remote_path)

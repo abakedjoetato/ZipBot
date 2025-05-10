@@ -67,7 +67,7 @@ class CSVParser:
         }
     }
 
-    def __init__(self, format_name: str = "deadside", hostname: str = None, server_id: str = None):
+    def __init__(self, format_name: str = "deadside", hostname: Optional[str] = None, server_id: Optional[str] = None):
         """Initialize CSV parser with specified format and server info
 
         Args:
@@ -118,7 +118,7 @@ class CSVParser:
         self._last_processed_line_count = {}  # Reset line tracking
         logger.info("CSV parser cache cleared")
 
-    def parse_csv_data(self, data: Union[str, bytes], delimiter: str = None) -> List[Dict[str, Any]]:
+    def parse_csv_data(self, data: Union[str, bytes], delimiter: Optional[str] = None) -> List[Dict[str, Any]]:
         """Parse CSV data and return list of events
 
         Args:
@@ -136,6 +136,15 @@ class CSVParser:
         # Convert bytes to string if needed
         if isinstance(data, bytes):
             data = data.decode("utf-8", errors="replace")
+        
+        # Ensure data is a string at this point
+        if not isinstance(data, str):
+            try:
+                data = str(data)
+                logger.warning(f"Converted non-string data of type {type(data).__name__} to string")
+            except Exception as e:
+                logger.error(f"Cannot convert data to string: {e}")
+                return []
             
         # Log a small sample of the data for debugging
         sample_text = data[:200] + "..." if len(data) > 200 else data
@@ -169,7 +178,7 @@ class CSVParser:
         finally:
             csv_file.close()
 
-    def parse_csv_file(self, file_path: str, only_new_lines: bool = False, delimiter: str = None) -> List[Dict[str, Any]]:
+    def parse_csv_file(self, file_path: str, only_new_lines: bool = False, delimiter: Optional[str] = None) -> List[Dict[str, Any]]:
         """Parse CSV file and return list of events
 
         Args:
@@ -188,7 +197,7 @@ class CSVParser:
             with open(file_path, "r", encoding="latin-1") as file:
                 return self._parse_csv_file(file, file_path=file_path, only_new_lines=only_new_lines, delimiter=delimiter)
 
-    def _parse_csv_file(self, file: Union[TextIO, BinaryIO], file_path: str = None, only_new_lines: bool = False, delimiter: str = None) -> List[Dict[str, Any]]:
+    def _parse_csv_file(self, file: Union[TextIO, BinaryIO], file_path: Optional[str] = None, only_new_lines: bool = False, delimiter: Optional[str] = None) -> List[Dict[str, Any]]:
         """Parse CSV file and return list of events
 
         Args:
@@ -280,14 +289,25 @@ class CSVParser:
             
         # Count occurrences of potential delimiters
         delimiters = {';': 0, ',': 0, '\t': 0, '|': 0}  # Added pipe as another possible delimiter
+        
+        # Ensure file_content is a string for delimiter counting
+        if isinstance(file_content, bytes):
+            try:
+                file_content_for_count = file_content.decode('utf-8', errors='replace')
+            except Exception:
+                file_content_for_count = file_content.decode('latin-1', errors='replace')
+        else:
+            file_content_for_count = file_content
+            
         for d in delimiters:
-            delimiters[d] = file_content.count(d)
+            delimiters[d] = file_content_for_count.count(d)
         
         # Add extra weight to semicolons to handle mixed format files better
         # Game logs commonly use semicolons and we want to prioritize them
         if delimiters.get(';', 0) > 0:
             original_count = delimiters[';']
-            delimiters[';'] *= 3.0  # Boost semicolons by 200% in detection (increased from 100%)
+            # Calculate boost factor using integer math to avoid float conversion
+            delimiters[';'] = int(original_count * 3)  # Boost semicolons by 200% in detection (increased from 100%)
             logger.debug(f"Boosting semicolon count from {original_count} to {delimiters[';']}")
             
         # If the file has a .csv filename but uses semicolons, boost semicolon weight further
@@ -297,19 +317,20 @@ class CSVParser:
         
         # Check for patterns that strongly indicate semicolon delimiter
         # Look for multiple sequential semicolons which often indicate empty fields in semicolon-delimited files
-        if ';;' in file_content or ';;;' in file_content:
+        if ';;' in file_content_for_count or ';;;' in file_content_for_count:
             logger.debug("Found multiple sequential semicolons, strongly indicates semicolon delimiter")
             delimiters[';'] += 50  # Add a strong bonus for this pattern
         
         # Check for patterns that indicate comma delimiter
         # In comma-delimited files, text fields are often quoted
-        if file_content.count('","') > 5:
+        if file_content_for_count.count('","') > 5:
             logger.debug("Found quoted comma patterns, indicates comma delimiter")
             delimiters[','] += 20
         
         # Sample line analysis for delimiter determination
         try:
-            sample_lines = file_content.split('\n')[:10]  # Analyze more lines
+            # Use the decoded content for line analysis
+            sample_lines = file_content_for_count.split('\n')[:10]  # Analyze more lines
             line_scores = {';': 0, ',': 0, '\t': 0, '|': 0}
             
             for line in sample_lines:
@@ -356,7 +377,7 @@ class CSVParser:
         self.separator = best_delimiter
         
         # Log first few lines for debugging
-        sample_lines = file_content.split('\n')[:5]
+        sample_lines = file_content_for_count.split('\n')[:5]
         logger.info(f"Sample content from {file_path or 'unknown'} (first 5 lines):")
         for idx, line in enumerate(sample_lines):
             logger.info(f"Line {idx+1}: {line[:100]}{'...' if len(line) > 100 else ''}")
@@ -364,8 +385,24 @@ class CSVParser:
         # Reset file position
         file.seek(0)
         
-        # Create CSV reader with the detected delimiter
-        csv_reader = csv.reader(file, delimiter=best_delimiter)
+        # Convert file content to string if it's not already
+        if not isinstance(file_content, str):
+            try:
+                file_content_str = file_content.decode('utf-8', errors='replace')
+            except Exception as e:
+                logger.error(f"Error converting binary content to string: {e}")
+                file_content_str = str(file_content)
+        else:
+            file_content_str = file_content
+            
+        # Always use StringIO with our already prepared file_content_str to ensure consistent behavior
+        # This avoids issues with BinaryIO vs TextIO in the csv module
+        try:
+            text_file = io.StringIO(file_content_str)
+            csv_reader = csv.reader(text_file, delimiter=best_delimiter)
+        except Exception as e:
+            logger.error(f"Error creating CSV reader: {e}")
+            return []
         
         # Skip header row if present
         first_row = next(csv_reader, None)
@@ -381,10 +418,11 @@ class CSVParser:
                 logger.info(f"First row appears to be a header: {first_row}")
                 is_header = True
         
-        # Reset file position if first row is not header
+        # Reset reader if first row is not a header
         if first_row is not None and not is_header:
-            file.seek(0)
-            csv_reader = csv.reader(file, delimiter=best_delimiter)
+            # Create a new reader from the start of the content
+            text_file = io.StringIO(file_content_str)
+            csv_reader = csv.reader(text_file, delimiter=best_delimiter)
 
         # Get or initialize line counter for this file
         last_processed_line = 0
@@ -548,7 +586,8 @@ class CSVParser:
                                 # and <2000000000 (May 2033) for current dates
                                 if 1000000000 <= timestamp_int <= 2000000000:
                                     event[self.datetime_column] = datetime.fromtimestamp(timestamp_int)
-                                    return event
+                                    parsed = True
+                                    break
                             except (ValueError, TypeError, OverflowError):
                                 pass
 

@@ -188,7 +188,7 @@ class LegacyCSVParser:
                 (not raw_parts[1].strip() and not raw_parts[3].strip())  # Both killer and victim empty
             )
             
-            if required_fields_missing is not None:
+            if required_fields_missing:
                 logger.debug(f"Missing required kill event fields, skipping line: {line}")
                 return None
                     
@@ -227,12 +227,12 @@ class LegacyCSVParser:
                 
                 # More flexible validation - require timestamp and either victim or killer info
                 # We'll be more permissive to capture more events
-                if timestamp_str is None:
+                if not timestamp_str:
                     logger.warning(f"Missing timestamp in line: {line}")
                     return None
                     
                 # As long as we have a timestamp and at least one player ID, we can use the event
-                if victim_id is None and not killer_id:
+                if not victim_id and not killer_id:
                     logger.warning(f"Missing all player IDs in line: {line}")
                     return None
                 
@@ -263,7 +263,7 @@ class LegacyCSVParser:
                     timestamp_str.strip(), "%Y.%m.%d-%H.%M.%S"
                 )
             except ValueError:
-                # Try alternative formats if the is not None standard format fails
+                # Try alternative formats if the standard format fails
                 try:
                     # Try format with different separators
                     timestamp = datetime.datetime.strptime(
@@ -280,7 +280,7 @@ class LegacyCSVParser:
                         # Use current time as fallback
                         timestamp = datetime.datetime.utcnow()
             
-            # Determine if this is not None is a suicide - only when killer ID equals victim ID
+            # Determine if this is a suicide - only when killer ID equals victim ID
             is_suicide = killer_id == victim_id
             suicide_type = None
             
@@ -305,11 +305,11 @@ class LegacyCSVParser:
                 if weapon_lower == "suicide_by_relocation" or weapon_lower == "suicide by relocation":
                     weapon = "Suicide (Menu)"
             
-            # Get console information if available is not None
+            # Get console information if available
             killer_console = ""
             victim_console = ""
             
-            # Check if console is not None fields are present in raw parts (new format)
+            # Check if console fields are present in raw parts (new format)
             # Safer extraction of console information
             killer_console = ""
             victim_console = ""
@@ -379,7 +379,7 @@ class LogParser:
     def parse_log_line(line: str) -> Optional[Dict[str, Any]]:
         """Parse a single line from a log file into an event or connection"""
         try:
-            # Check if line is not None has a timestamp prefix
+            # Check if line has a timestamp prefix
             timestamp_match = re.match(r'\[([\d\.\-]+)-([\d:]+)\]', line)
             if timestamp_match is None:
                 return None
@@ -404,7 +404,7 @@ class LogParser:
             
             # Check for player connection events
             connection_match = re.search(r'Player (\w+) \(([0-9a-f]+)\) (connected|disconnected)', line)
-            if connection_match is not None:
+            if connection_match:
                 player_name, player_id, action = connection_match.groups()
                 return {
                     "type": "connection",
@@ -418,7 +418,7 @@ class LogParser:
             # Check for game events
             for event_type, pattern in EVENT_PATTERNS.items():
                 event_match = re.search(pattern, line)
-                if event_match is not None:
+                if event_match:
                     return {
                         "type": "event",
                         "timestamp": timestamp,

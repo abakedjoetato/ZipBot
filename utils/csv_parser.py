@@ -484,9 +484,9 @@ class CSVParser:
                         timestamp_str = event[self.datetime_column]
                         parsed = False
 
-                        # Try these common formats
+                        # Enhanced set of common timestamp formats with comprehensive coverage
                         alternative_formats = [
-                            # Primary formats with dots
+                            # Primary formats with dots (Deadside standard format)
                             "%Y.%m.%d-%H.%M.%S",      # 2025.03.27-10.42.18 (primary format)
                             "%Y.%m.%d-%H:%M:%S",      # 2025.05.09-11:58:37 (variant with colons)
                             "%Y.%m.%d-%H.%M.%S.%f",   # 2025.03.27-10.42.18.123 (with milliseconds)
@@ -496,30 +496,61 @@ class CSVParser:
                             "%Y.%m.%d %H:%M:%S",      # 2025.05.09 11:58:37
                             "%Y.%m.%d %H.%M.%S.%f",   # 2025.05.09 11.58.37.123 (with milliseconds)
                             
-                            # Hyphen formats
+                            # Hyphen formats (ISO 8601 style)
                             "%Y-%m-%d-%H.%M.%S",      # 2025-05-09-11.58.37
                             "%Y-%m-%d %H:%M:%S",      # 2025-05-09 11:58:37
                             "%Y-%m-%d-%H:%M:%S",      # 2025-05-09-11:58:37
                             "%Y-%m-%d %H.%M.%S",      # 2025-05-09 11.58.37
                             "%Y-%m-%dT%H:%M:%S",      # 2025-05-09T11:58:37 (ISO format)
                             "%Y-%m-%dT%H:%M:%S.%f",   # 2025-05-09T11:58:37.123 (ISO with ms)
+                            "%Y-%m-%dT%H:%M:%SZ",     # 2025-05-09T11:58:37Z (ISO with UTC)
+                            "%Y-%m-%dT%H:%M:%S.%fZ",  # 2025-05-09T11:58:37.123Z (ISO with ms and UTC)
                             
-                            # Slash formats
+                            # Slash formats (US style)
                             "%Y/%m/%d %H:%M:%S",      # 2025/05/09 11:58:37
                             "%Y/%m/%d-%H:%M:%S",      # 2025/05/09-11:58:37
+                            "%Y/%m/%d %H.%M.%S",      # 2025/05/09 11.58.37
+                            "%m/%d/%Y %H:%M:%S",      # 05/09/2025 11:58:37 (US format)
                             
                             # Day first formats (European style)
                             "%d.%m.%Y-%H.%M.%S",      # 09.05.2025-11.58.37
                             "%d.%m.%Y %H:%M:%S",      # 09.05.2025 11:58:37
                             "%d-%m-%Y %H:%M:%S",      # 09-05-2025 11:58:37
+                            "%d/%m/%Y %H:%M:%S",      # 09/05/2025 11:58:37
                             
-                            # Additional variants
+                            # Compact formats (no separators)
                             "%Y%m%d-%H%M%S",          # 20250509-115837 (compact format)
                             "%Y%m%d_%H%M%S",          # 20250509_115837 (underscore format)
+                            "%Y%m%d%H%M%S",           # 20250509115837 (fully compact)
                             
-                            # Unix timestamp (as string)
+                            # Month name formats
+                            "%b %d %Y %H:%M:%S",      # May 09 2025 11:58:37
+                            "%d %b %Y %H:%M:%S",      # 09 May 2025 11:58:37
+                            "%B %d %Y %H:%M:%S",      # May 09 2025 11:58:37 (full month name)
+                            "%d %B %Y %H:%M:%S",      # 09 May 2025 11:58:37 (full month name)
+                            
+                            # 12-hour clock formats
+                            "%Y-%m-%d %I:%M:%S %p",   # 2025-05-09 11:58:37 AM
+                            "%Y.%m.%d %I:%M:%S %p",   # 2025.05.09 11:58:37 AM
+                            "%d/%m/%Y %I:%M:%S %p",   # 09/05/2025 11:58:37 AM
+                            
+                            # Unix timestamp formats
                             "%s"                      # Unix timestamp in seconds
                         ]
+                        
+                        # Additional attempt to convert numeric timestamps
+                        timestamp_str = event[self.datetime_column]
+                        if isinstance(timestamp_str, str) and timestamp_str.isdigit():
+                            # Try to interpret as unix timestamp if it's all digits
+                            try:
+                                timestamp_int = int(timestamp_str)
+                                # Unix timestamps are typically >1000000000 (September 2001)
+                                # and <2000000000 (May 2033) for current dates
+                                if 1000000000 <= timestamp_int <= 2000000000:
+                                    event[self.datetime_column] = datetime.fromtimestamp(timestamp_int)
+                                    return event
+                            except (ValueError, TypeError, OverflowError):
+                                pass
 
                         for fmt in alternative_formats:
                             try:
@@ -836,7 +867,7 @@ class CSVParser:
             # Add the standard format to the list of formats to try
             tried_formats.append(self.format_config)
 
-            # Add fallback formats if available is not None
+            # Add fallback formats if available
             if "fallback_formats" in self.format_config:
                 tried_formats.extend(self.format_config["fallback_formats"])
 
@@ -851,7 +882,7 @@ class CSVParser:
         while True:
             # Read a chunk
             chunk = file_obj.read(chunk_size)
-            if chunk is None:
+            if not chunk:  # Empty string means EOF, None would be an error
                 break  # End of file
 
             # Decode chunk
@@ -912,16 +943,58 @@ class CSVParser:
                             if not required_ok:
                                 continue  # Skip to next format
 
-                        # Convert datetime
+                        # Convert datetime with multiple format support
                         if datetime_column in record and record[datetime_column]:
+                            timestamp_str = record[datetime_column]
+                            parsed = False
+                            
+                            # Try primary format first
                             try:
                                 record[datetime_column] = datetime.strptime(
-                                    record[datetime_column], 
+                                    timestamp_str, 
                                     datetime_format
                                 )
+                                parsed = True
                             except (ValueError, TypeError):
-                                # Keep original string
-                                pass
+                                # Now try alternative formats
+                                alternative_formats = [
+                                    # Primary formats with dots
+                                    "%Y.%m.%d-%H.%M.%S",      # 2025.03.27-10.42.18
+                                    "%Y.%m.%d-%H:%M:%S",      # 2025.05.09-11:58:37
+                                    "%Y.%m.%d %H.%M.%S",      # 2025.05.09 11.58.37
+                                    "%Y.%m.%d %H:%M:%S",      # 2025.05.09 11:58:37
+                                    
+                                    # ISO-style formats
+                                    "%Y-%m-%d %H:%M:%S",      # 2025-05-09 11:58:37
+                                    "%Y-%m-%dT%H:%M:%S",      # 2025-05-09T11:58:37
+                                    
+                                    # Additional common formats
+                                    "%m/%d/%Y %H:%M:%S",      # 05/09/2025 11:58:37 (US)
+                                    "%d.%m.%Y %H:%M:%S",      # 09.05.2025 11:58:37 (EU)
+                                ]
+                                
+                                # Try each alternative format
+                                for fmt in alternative_formats:
+                                    try:
+                                        record[datetime_column] = datetime.strptime(timestamp_str, fmt)
+                                        parsed = True
+                                        break
+                                    except (ValueError, TypeError):
+                                        continue
+                                
+                                # If all parsing attempts failed but it's numeric, try timestamp
+                                if not parsed and isinstance(timestamp_str, str) and timestamp_str.isdigit():
+                                    try:
+                                        timestamp_int = int(timestamp_str)
+                                        if 1000000000 <= timestamp_int <= 2000000000:  # Valid timestamp range
+                                            record[datetime_column] = datetime.fromtimestamp(timestamp_int)
+                                            parsed = True
+                                    except (ValueError, OverflowError, TypeError):
+                                        pass
+                            
+                            # If all parsing failed, keep original string
+                            if not parsed:
+                                pass  # Keep the original string
 
                         # Parse numeric fields
                         if "distance" in record:
@@ -944,7 +1017,7 @@ class CSVParser:
                         # Try next format
                         continue
 
-                # Yield the parsed record if successful is not None
+                # Yield the parsed record if successful
                 if parsed_record is not None:
                     yield parsed_record
 
@@ -981,16 +1054,58 @@ class CSVParser:
                         if not required_ok:
                             continue  # Skip to next format
 
-                    # Convert datetime
+                    # Convert datetime with multiple format support (for final buffer line)
                     if datetime_column in record and record[datetime_column]:
+                        timestamp_str = record[datetime_column]
+                        parsed = False
+                        
+                        # Try primary format first
                         try:
                             record[datetime_column] = datetime.strptime(
-                                record[datetime_column], 
+                                timestamp_str, 
                                 datetime_format
                             )
+                            parsed = True
                         except (ValueError, TypeError):
-                            # Keep original string
-                            pass
+                            # Now try alternative formats
+                            alternative_formats = [
+                                # Primary formats with dots
+                                "%Y.%m.%d-%H.%M.%S",      # 2025.03.27-10.42.18
+                                "%Y.%m.%d-%H:%M:%S",      # 2025.05.09-11:58:37
+                                "%Y.%m.%d %H.%M.%S",      # 2025.05.09 11.58.37
+                                "%Y.%m.%d %H:%M:%S",      # 2025.05.09 11:58:37
+                                
+                                # ISO-style formats
+                                "%Y-%m-%d %H:%M:%S",      # 2025-05-09 11:58:37
+                                "%Y-%m-%dT%H:%M:%S",      # 2025-05-09T11:58:37
+                                
+                                # Additional common formats
+                                "%m/%d/%Y %H:%M:%S",      # 05/09/2025 11:58:37 (US)
+                                "%d.%m.%Y %H:%M:%S",      # 09.05.2025 11:58:37 (EU)
+                            ]
+                            
+                            # Try each alternative format
+                            for fmt in alternative_formats:
+                                try:
+                                    record[datetime_column] = datetime.strptime(timestamp_str, fmt)
+                                    parsed = True
+                                    break
+                                except (ValueError, TypeError):
+                                    continue
+                            
+                            # If all parsing attempts failed but it's numeric, try timestamp
+                            if not parsed and isinstance(timestamp_str, str) and timestamp_str.isdigit():
+                                try:
+                                    timestamp_int = int(timestamp_str)
+                                    if 1000000000 <= timestamp_int <= 2000000000:  # Valid timestamp range
+                                        record[datetime_column] = datetime.fromtimestamp(timestamp_int)
+                                        parsed = True
+                                except (ValueError, OverflowError, TypeError):
+                                    pass
+                        
+                        # If all parsing failed, keep original string
+                        if not parsed:
+                            pass  # Keep the original string
 
                     # Parse numeric fields
                     if "distance" in record:
@@ -1022,7 +1137,10 @@ class CSVParser:
         try:
             # Read a sample
             sample = file_obj.read(8192)  # 8KB sample
-            if sample is None:
+            
+            # Enhanced empty file detection
+            if not sample or (isinstance(sample, (str, bytes)) and len(sample.strip()) == 0):
+                logger.info("Empty file or EOF reached, using default format configuration")
                 return self.format_config  # Empty file, use default
 
             # Decode sample
@@ -1291,7 +1409,7 @@ class CSVParser:
         # Add format to LOG_FORMATS
         self.LOG_FORMATS[format_name] = format_config
 
-        # Update current format if matching is not None
+        # Update current format if matching
         if format_name == self.format_name:
             self.format_config = format_config
             self.separator = format_config["separator"]

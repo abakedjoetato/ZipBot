@@ -1401,29 +1401,64 @@ class CSVProcessorCog(commands.Cog):
                                         logger.warning(f"CSV file {file_path} contains no valid delimiters, likely corrupted")
                                         continue
                                         
-                                    # Enhanced delimiter detection
+                                    # Enhanced delimiter detection with bias towards semicolons
                                     semicolon_count = decoded_content.count(';')
                                     comma_count = decoded_content.count(',')
                                     tab_count = decoded_content.count('\t')
                                     
-                                    logger.debug(f"Delimiter detection: semicolons={semicolon_count}, commas={comma_count}, tabs={tab_count}")
+                                    # Apply a weight factor to prioritize semicolons
+                                    # Game logs commonly use semicolons and we want to prioritize them
+                                    weighted_semicolon_count = semicolon_count * 3  # Triple the weight for semicolons
                                     
-                                    # Determine the most likely delimiter
+                                    logger.debug(f"Delimiter detection: semicolons={semicolon_count} (weighted: {weighted_semicolon_count}), commas={comma_count}, tabs={tab_count}")
+                                    
+                                    # Determine the most likely delimiter with semicolon bias
                                     detected_delimiter = ';'  # Default for our format
-                                    if comma_count > semicolon_count and comma_count > tab_count:
+                                    if comma_count > weighted_semicolon_count and comma_count > tab_count:
                                         detected_delimiter = ','
-                                    elif tab_count > semicolon_count and tab_count > comma_count:
+                                    elif tab_count > weighted_semicolon_count and tab_count > comma_count:
                                         detected_delimiter = '\t'
+                                    else:
+                                        # Additional check for patterns that strongly indicate semicolon delimiter
+                                        if ';;' in decoded_content or ';;;' in decoded_content:
+                                            logger.debug("Found multiple sequential semicolons, confirming semicolon delimiter")
+                                            detected_delimiter = ';'
                                         
                                     logger.info(f"Using detected delimiter: '{detected_delimiter}' for file {file_path}")
                                             
                                     # Check for data rows that match expected format - minimum field count for kill events
                                     has_valid_data = False
-                                    sample_lines = decoded_content.split('\n')[:10]  # Check first 10 lines
+                                    sample_lines = decoded_content.split('\n')[:20]  # Check first 20 lines for better detection
+                                    
+                                    # Minimum field counts for different formats
+                                    min_fields_for_kill = 6  # timestamp, killer, killer_id, victim, victim_id, weapon
+                                    
                                     for line in sample_lines:
-                                        if line and line.count(detected_delimiter) >= 5:
-                                            has_valid_data = True
-                                            break
+                                        if not line or line.isspace():
+                                            continue
+                                            
+                                        # Count fields by delimiter (adding 1 since n delimiters = n+1 fields)
+                                        field_count = line.count(detected_delimiter) + 1
+                                        
+                                        # Check if this looks like a header line
+                                        is_header = ('time' in line.lower() or 'date' in line.lower()) and \
+                                                   ('killer' in line.lower() or 'player' in line.lower())
+                                        
+                                        # If it's not a header and has enough fields, it might be valid data
+                                        if not is_header and field_count >= min_fields_for_kill:
+                                            # Additional quality check - make sure there's a timestamp-like pattern
+                                            # Most timestamps have numbers and periods or hyphens
+                                            fields = line.split(detected_delimiter)
+                                            first_field = fields[0].strip() if fields else ""
+                                            
+                                            # Looks like a timestamp if it has digits and separators
+                                            looks_like_timestamp = any(c.isdigit() for c in first_field) and \
+                                                                 any(c in '.-: ' for c in first_field)
+                                            
+                                            if looks_like_timestamp:
+                                                has_valid_data = True
+                                                logger.debug(f"Found valid data row: {line[:50]}...")
+                                                break
                                             
                                     if not has_valid_data:
                                         logger.warning(f"CSV file {file_path} doesn't contain properly formatted kill data")

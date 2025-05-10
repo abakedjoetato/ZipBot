@@ -244,22 +244,49 @@ class CSVParser:
                 logger.error(f"File object does not support seek operation, cannot process {file_path or 'unknown path'}")
                 return []
                 
-            # Handle binary content if needed
+            # Enhanced binary content handling with robust fallbacks
+            # First check if it's binary and convert accordingly
             if isinstance(file_content, bytes):
                 try:
+                    # Try UTF-8 first with replacing invalid chars
                     file_content = file_content.decode('utf-8', errors='replace')
-                    logger.info(f"Converted binary content to text for {file_path or 'unknown path'}")
+                    logger.info(f"Converted binary content to UTF-8 text for {file_path or 'unknown path'}")
                 except Exception as e:
-                    logger.error(f"Error decoding binary content: {e}")
-                    return []
-                    
-            # Handle unexpected content types
-            if not isinstance(file_content, str):
+                    logger.warning(f"UTF-8 decode failed: {e}, trying Latin-1 as fallback")
+                    try:
+                        # Latin-1 will always succeed as it maps all 256 byte values
+                        file_content = file_content.decode('latin-1')
+                        logger.info(f"Converted binary content using Latin-1 fallback for {file_path or 'unknown path'}")
+                    except Exception as e2:
+                        logger.error(f"All decoding attempts failed: {e2}")
+                        return []
+            
+            # Handle memoryview objects (common in some I/O operations)
+            elif isinstance(file_content, memoryview):
                 try:
-                    file_content = str(file_content)
-                    logger.warning(f"Converted non-string content of type {type(file_content)} to string")
+                    # Convert memoryview to bytes first
+                    bytes_content = file_content.tobytes()
+                    # Then decode to string using UTF-8
+                    file_content = bytes_content.decode('utf-8', errors='replace')
+                    logger.info(f"Converted memoryview to text for {file_path or 'unknown path'}")
                 except Exception as e:
-                    logger.error(f"Cannot convert content to string: {e}")
+                    # Try Latin-1 as fallback
+                    try:
+                        bytes_content = file_content.tobytes()
+                        file_content = bytes_content.decode('latin-1')
+                        logger.info(f"Converted memoryview using Latin-1 fallback for {file_path or 'unknown path'}")
+                    except Exception as e2:
+                        logger.error(f"Failed to convert memoryview: {e2}")
+                        return []
+                    
+            # Handle other non-string types with better error reporting
+            elif not isinstance(file_content, str):
+                try:
+                    logger.warning(f"Unexpected content type: {type(file_content)} for {file_path or 'unknown path'}")
+                    file_content = str(file_content)
+                    logger.info(f"Successfully converted {type(file_content)} to string")
+                except Exception as e:
+                    logger.error(f"Cannot convert content of type {type(file_content)} to string: {e}")
                     return []
         except Exception as e:
             logger.error(f"Error reading from file: {str(e)}")

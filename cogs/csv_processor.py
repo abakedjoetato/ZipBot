@@ -12,6 +12,7 @@ import logging
 import os
 import re
 import time
+import traceback
 from datetime import datetime, timedelta
 from typing import Dict, List, Optional, Any, Union, Tuple, cast, TypeVar, Protocol, TYPE_CHECKING, Coroutine
 
@@ -177,6 +178,47 @@ class CSVProcessorCog(commands.Cog):
         await self.bot.wait_until_ready()
         # Add a small delay to avoid startup issues
         await asyncio.sleep(10)
+        
+    async def direct_csv_processing(self, server_id: str, days: int = 30) -> Tuple[int, int]:
+        """
+        Process CSV files using the direct parser, completely bypassing the normal infrastructure.
+        This is a last-resort method when all other parsing methods fail.
+        
+        Args:
+            server_id: Server ID
+            days: Number of days to look back
+            
+        Returns:
+            Tuple[int, int]: Number of files processed and events imported
+        """
+        logger.warning(f"USING DIRECT CSV HANDLER FOR SERVER {server_id} - THIS IS A FALLBACK METHOD")
+        
+        try:
+            # Import our direct handler
+            from utils.direct_csv_handler import process_directory, update_player_stats, update_rivalries
+            
+            # Process files directly
+            files_processed, events_imported = await process_directory(
+                db=self.bot.db,
+                server_id=server_id,
+                days=days
+            )
+            
+            logger.info(f"Direct processing complete: processed {files_processed} files, imported {events_imported} events")
+            
+            if events_imported > 0:
+                # Update player stats and rivalries
+                players_updated = await update_player_stats(self.bot.db, server_id)
+                rivalries_updated = await update_rivalries(self.bot.db, server_id)
+                
+                logger.info(f"Updated {players_updated} players and {rivalries_updated} rivalries")
+                
+            return files_processed, events_imported
+            
+        except Exception as e:
+            logger.error(f"Error in direct CSV processing: {e}")
+            logger.error(traceback.format_exc())
+            return 0, 0
 
     async def _get_server_configs(self) -> Dict[str, Dict[str, Any]]:
         """Get configurations for all servers with SFTP enabled
@@ -1483,15 +1525,25 @@ class CSVProcessorCog(commands.Cog):
                                                 # Force historical mode (full processing) for all files
                                                 logger.warning(f"EMERGENCY FIX: Using historical mode for all files with delimiter: '{detected_delimiter}'")
                                                 
-                                                # Process the file with complete historical mode
-                                                logger.warning(f"EMERGENCY FIX: Processing full file: {os.path.basename(file_path)}")
-                                                events = self.csv_parser._parse_csv_file(
-                                                    content_io, 
-                                                    file_path=file_path, 
-                                                    only_new_lines=False, 
-                                                    delimiter=detected_delimiter
+                                                # COMPLETELY NEW APPROACH: Use direct CSV handler instead of standard parser
+                                                # Import here to avoid circular imports
+                                                from utils.direct_csv_handler import direct_parse_csv_content
+                                                
+                                                logger.warning(f"NEW DIRECT HANDLER: Processing file with specialized parser: {os.path.basename(file_path)}")
+                                                
+                                                # Reset the file pointer to start
+                                                content_io.seek(0)
+                                                
+                                                # Read the entire content as a string
+                                                content_str = content_io.read()
+                                                
+                                                # Process with direct parser
+                                                events = direct_parse_csv_content(
+                                                    content_str,
+                                                    file_path=file_path,
+                                                    server_id=server_id
                                                 )
-                                                logger.warning(f"EMERGENCY FIX: Processed {len(events)} events from file")
+                                                logger.warning(f"NEW DIRECT HANDLER: Processed {len(events)} events from file")
                                                 break  # Success - exit retry loop
                                             except Exception as e:
                                                 if retry < max_retries:
@@ -1900,6 +1952,47 @@ class CSVProcessorCog(commands.Cog):
         Returns:
             Tuple[int, int]: Number of files processed and events processed
         """
+        # SOLUTION 1: Try direct CSV processor for attached_assets first (most reliable)
+        logger.warning(f"PLAN A: Using direct CSV processor for server {server_id}")
+        try:
+            # Use our direct CSV processing method that bypasses all the complex infrastructure
+            files_processed, events_inserted = await self.direct_csv_processing(
+                server_id=server_id,
+                days=days
+            )
+            
+            if files_processed > 0:
+                logger.warning(f"DIRECT CSV PROCESSING SUCCESS: Processed {files_processed} files with {events_inserted} events")
+                return files_processed, events_inserted
+            else:
+                logger.warning("DIRECT CSV PROCESSING: No files processed, trying next method")
+        except Exception as e:
+            logger.error(f"DIRECT CSV PROCESSING ERROR: {e}")
+            logger.error(f"Trace: {traceback.format_exc()}")
+        
+        # SOLUTION 2: Try standalone historical parser (second most reliable)
+        logger.warning(f"PLAN B: Using standalone parser for server {server_id}")
+        try:
+            # Import the standalone module
+            from fix_historical_parser import standalone_historical_parser
+            
+            # Run the standalone parser with the database connection
+            files_processed, events_inserted = await standalone_historical_parser(
+                server_id=server_id,
+                days=days,
+                db=self.bot.db
+            )
+            
+            if files_processed > 0:
+                logger.warning(f"STANDALONE PARSER SUCCESS: Processed {files_processed} files with {events_inserted} events")
+                return files_processed, events_inserted
+            else:
+                logger.warning("STANDALONE PARSER: No files processed, trying legacy method")
+        except Exception as e:
+            logger.error(f"STANDALONE PARSER ERROR: {e}")
+            logger.error(f"Trace: {traceback.format_exc()}")
+            
+        # SOLUTION 3: Continue with legacy implementation as last resort
         logger.info(f"Starting historical parse with direct config for server {server_id}, looking back {days} days")
         
         # Configure processing start time based on requested days
@@ -1955,6 +2048,23 @@ class CSVProcessorCog(commands.Cog):
         from utils.server_identity import resolve_server_id, identify_server, KNOWN_SERVERS
         
         logger.info(f"Starting historical parse for server {raw_input_id}, looking back {days} days")
+        
+        # DIRECT APPROACH: Try direct CSV processing first before any complicated server resolution
+        logger.warning(f"DIRECT APPROACH: Try direct CSV processing for {raw_input_id} before complicated resolution")
+        try:
+            files_processed, events_inserted = await self.direct_csv_processing(
+                server_id=raw_input_id,
+                days=days
+            )
+            
+            if files_processed > 0:
+                logger.warning(f"DIRECT CSV PROCESSING SUCCESS: Processed {files_processed} files with {events_inserted} events")
+                return files_processed, events_inserted
+            else:
+                logger.warning("DIRECT CSV PROCESSING: No files processed, continuing with server resolution")
+        except Exception as e:
+            logger.error(f"DIRECT CSV PROCESSING ERROR: {e}")
+            logger.error(traceback.format_exc())
         
         # STEP 1: Try to resolve the server ID comprehensively using our new function
         server_resolution = await resolve_server_id(self.bot.db, server_id, guild_id)
@@ -2286,6 +2396,12 @@ class CSVProcessorCog(commands.Cog):
             server_id: Server ID to process (optional)
             days: Number of days to look back (default: 30)
         """
+        # Note: This command has been significantly enhanced with a multi-tier approach.
+        # It will try three different approaches in the following order:
+        # 1. Direct CSV processing from attached_assets directory (most reliable)
+        # 2. Standalone historical parser that bypasses the complex infrastructure
+        # 3. Legacy approach with SFTP connections (least reliable)
+        
         await interaction.response.defer(ephemeral=True)
 
         # Import standardization function

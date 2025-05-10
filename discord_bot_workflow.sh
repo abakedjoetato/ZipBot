@@ -1,15 +1,20 @@
 #!/bin/bash
-# Enhanced Discord bot launcher script with better resilience
-# This script will run the restart_handler.sh which provides ultimate stability
 
-echo "===================================================="
-echo "  Starting Discord Bot with Ultimate Stability"
-echo "===================================================="
-echo "  $(date)"
-echo "===================================================="
+# Discord Bot Workflow Script
+# This script runs the Discord bot test script
 
-# Make sure our scripts are executable
-chmod +x bot_wrapper.py restart_handler.sh
+echo "Starting Discord Bot Test Workflow..."
+echo "Timestamp: $(date)"
+echo "-----------------------------------"
 
-# Run the restart handler
-./restart_handler.sh
+# Make the test script executable
+chmod +x test_discord_bot.py
+
+# Run the test script
+python test_discord_bot.py
+
+# Workflow completion
+echo "-----------------------------------"
+echo "Discord Bot Test Workflow completed."
+echo "Timestamp: $(date)"
+echo "Check discord_test.log for results."

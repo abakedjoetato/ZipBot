@@ -49,3 +49,7 @@ pytz
 requests
 sqlalchemy
 psutil
+aiohttp
+asyncssh
+discord.py
+python-dotenv

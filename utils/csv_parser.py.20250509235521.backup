@@ -97,9 +97,6 @@ class CSVParser:
         self.columns = self.format_config["columns"]
         self.datetime_format = self.format_config["datetime_format"]
         self.datetime_column = self.format_config["datetime_column"]
-        
-        # Added attribute to track last detected delimiter for testing and diagnostics
-        self.last_detected_delimiter = None
 
         # Initialize format detection state
         self.detected_format_info = {"april_update": False}  # Default to pre-April format
@@ -342,9 +339,6 @@ class CSVParser:
             # We'll still try to parse with default separator, but log the warning
             
         logger.info(f"Detected delimiter: '{best_delimiter}' (counts: {delimiters})")
-        
-        # Store the detected delimiter for testing and diagnostics
-        self.last_detected_delimiter = best_delimiter
         
         # Log first few lines for debugging
         sample_lines = file_content.split('\n')[:5]

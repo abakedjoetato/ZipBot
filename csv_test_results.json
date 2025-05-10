@@ -1,0 +1,72 @@
+{
+  "files_tested": 7,
+  "files_parsed_successfully": 7,
+  "total_events": 1373,
+  "empty_files": 4,
+  "files_with_errors": [],
+  "delimiter_counts": {
+    ",": 0,
+    ";": 3,
+    "\\t": 0,
+    "other": 0
+  },
+  "all_tests_passed": true,
+  "file_details": [
+    {
+      "file": "attached_assets/2025.03.27-00.00.00.csv",
+      "success": true,
+      "events": 1112,
+      "is_empty": false,
+      "delimiter": ";",
+      "errors": []
+    },
+    {
+      "file": "attached_assets/2025.05.01-00.00.00.csv",
+      "success": true,
+      "events": 258,
+      "is_empty": false,
+      "delimiter": ";",
+      "errors": []
+    },
+    {
+      "file": "attached_assets/2025.05.03-00.00.00.csv",
+      "success": true,
+      "events": 0,
+      "is_empty": true,
+      "delimiter": null,
+      "errors": []
+    },
+    {
+      "file": "attached_assets/2025.05.03-01.00.00.csv",
+      "success": true,
+      "events": 0,
+      "is_empty": true,
+      "delimiter": null,
+      "errors": []
+    },
+    {
+      "file": "attached_assets/2025.05.03-02.00.00.csv",
+      "success": true,
+      "events": 0,
+      "is_empty": true,
+      "delimiter": null,
+      "errors": []
+    },
+    {
+      "file": "attached_assets/2025.05.03-03.00.00.csv",
+      "success": true,
+      "events": 0,
+      "is_empty": true,
+      "delimiter": null,
+      "errors": []
+    },
+    {
+      "file": "attached_assets/2025.05.09-11.58.37.csv",
+      "success": true,
+      "events": 3,
+      "is_empty": false,
+      "delimiter": ";",
+      "errors": []
+    }
+  ]
+}

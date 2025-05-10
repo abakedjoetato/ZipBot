@@ -19,21 +19,13 @@ from discord.ext import commands
 from discord.ext.commands import Bot, Cog
 from discord import app_commands
 from discord.app_commands import Choice
-# Try to import AppCommandOptionType directly, but provide a fallback if not available
+
+# Compatibility enums
 try:
-    from discord import AppCommandOptionType  # Import from main discord module
+    from discord import AppCommandOptionType
 except ImportError:
-    # Define compatibility class if not available
-    class AppCommandOptionType:
-        STRING = 3
-        INTEGER = 4
-        BOOLEAN = 5
-        USER = 6
-        CHANNEL = 7
-        ROLE = 8
-        MENTIONABLE = 9
-        NUMBER = 10
-        ATTACHMENT = 11
+    from discord.enums import ChannelType
+    from discord.app_commands.transformers import AppCommandOptionType
 
 # Log discord version
 logger.info(f"Using discord library version: {discord.__version__}")
@@ -185,3 +177,12 @@ def get_app_commands_module():
         discord.app_commands module
     """
     return app_commands
+
+def setup_discord_compat(bot):
+    """Set up compatibility layer between discord.py versions"""
+    if not hasattr(bot, 'tree'):
+        bot.tree = discord.app_commands.CommandTree(bot)
+    return bot
+
+# Export compatibility layer
+__all__ = ['setup_discord_compat', 'AppCommandOptionType']
